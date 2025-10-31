@@ -1,24 +1,19 @@
 /* 1. Pengaturan Dasar Halaman */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  /* PERUBAHAN: Latar belakang body sekarang putih, menyatu dengan app */
   background-color: #ffffff;
   margin: 0;
-  color: #333; /* Warna teks default */
+  color: #333;
 }
 
 /* 2. Kontainer Aplikasi Utama */
 .app {
   width: 100%;
-  /* Lebar maksimal tetap sama untuk keterbacaan */
   max-width: 960px;
-  margin: 1rem auto; /* Mengurangi margin atas untuk nuansa lebih cepat */
-
-  /* PERUBAHAN: Hilangkan semua nuansa "kotak" */
+  margin: 1rem auto;
   background-color: #ffffff;
   box-shadow: none;
   border-radius: 0;
-  
   display: flex;
   flex-direction: column;
 }
@@ -27,27 +22,25 @@ body {
 .app-header {
   padding: 1.5rem 0.5rem;
   text-align: center;
-  /* PERUBAHAN: Hilangkan garis batas */
-  border-bottom: none;
-  background-color: #fafafa; /* Sedikit abu-abu halus untuk header */
-  border-radius: 8px; /* Beri header sedikit radius */
-  margin-bottom: 2rem; /* Beri jarak ke konten */
+  background-color: #fafafa;
+  border-radius: 8px;
+  margin-bottom: 2rem;
 }
 
 .app-header h1 {
   margin: 0;
-  font-size: 1.5rem; /* Sedikit lebih besar */
+  font-size: 1.5rem;
   color: #1f1f1f;
 }
 
 /* 4. Jendela Chat (Daftar Pesan) */
 .chat-window {
   flex-grow: 1;
-  padding: 0 0.5rem; /* Padding horizontal minimal */
+  padding: 0 0.5rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 20px; /* Jarak antar pesan */
+  gap: 20px;
 }
 
 /* 5. Bubble Generik (Dasar) */
@@ -65,55 +58,87 @@ body {
   align-self: flex-end;
   border-bottom-right-radius: 4px;
 }
+/* Style teks di dalam bubble pengguna */
+.chat-bubble.user p {
+  margin: 0; /* Pastikan tidak ada margin tambahan */
+}
 
-/* * 7. PERUBAHAN UTAMA: Respons Model (Bukan Bubble Lagi!) 
- * Kita "menghapus" bubble agar teksnya tampil alami.
- */
+
+/* 7. Kontainer Respons Model (Bukan Bubble) */
 .chat-bubble.model {
-  /* PERUBAHAN: Hapus semua style bubble */
-  background-color: #ffffff; /* Menyatu dengan latar belakang */
-  color: #333;              /* Warna teks normal */
-  align-self: stretch;     /* Rentangkan penuh */
+  background-color: #ffffff;
+  color: #333;
+  align-self: stretch;
   max-width: 100%;
-  padding: 0;                /* Tidak ada padding bubble */
-  border-radius: 0;          /* Tidak ada radius bubble */
-  
-  /* PERUBAHAN: 'loading' sekarang hanya teks */
+  padding: 0;
+  border-radius: 0;
 }
 .chat-bubble.model.loading {
   font-style: italic;
   color: #888;
 }
 
-/* * 8. PERUBAHAN UTAMA: Teks Respons Model 
- * Karena bubble-nya hilang, kita men-style teks di dalamnya.
+
+/* * 8. PERUBAHAN UTAMA: STYLING UNTUK KONTEN MARKDOWN
+ * Ini akan men-style output dari react-markdown
  */
-.chat-bubble.model pre {
-  white-space: pre-wrap;   /* Wajib untuk membungkus teks */
-  font-family: inherit;    /* Gunakan font halaman, bukan font 'code' */
-  font-size: 1rem;         /* Ukuran baca yang nyaman */
-  line-height: 1.6;        /* Spasi antar baris agar mudah dibaca */
-  margin: 0;
-  color: #1f1f1f;          /* Warna teks yang sedikit lebih gelap */
+
+/* Paragraf standar */
+.chat-bubble.model p {
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 1rem; /* Spasi antar paragraf */
+  color: #1f1f1f;
 }
+
+/* Headings (Judul) */
+.chat-bubble.model h1, 
+.chat-bubble.model h2, 
+.chat-bubble.model h3 {
+  font-weight: 600;
+  margin-top: 2rem;    /* Beri spasi di atas judul */
+  margin-bottom: 0.5rem;
+  color: #000;
+}
+
+.chat-bubble.model h1 { font-size: 1.8rem; }
+.chat-bubble.model h2 { font-size: 1.5rem; }
+.chat-bubble.model h3 { font-size: 1.25rem; }
+
+/* Lists (Bullet & Angka) */
+.chat-bubble.model ul, 
+.chat-bubble.model ol {
+  padding-left: 2rem; /* Indentasi list */
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+/* Bold */
+.chat-bubble.model strong {
+  font-weight: bold;
+}
+
+/* Italic */
+.chat-bubble.model em {
+  font-style: italic;
+}
+
 
 /* 9. Formulir Input */
 .chat-form {
   display: flex;
-  padding: 2rem 0.5rem; /* Beri jarak lebih banyak */
-  /* PERUBAHAN: Hilangkan garis batas */
+  padding: 2rem 0.5rem;
   border-top: none;
-  /* Posisikan di bawah untuk nuansa 'sticky' (opsional) */
   position: sticky;
   bottom: 0;
-  background-color: #ffffff; /* Wajib agar tidak transparan saat scroll */
+  background-color: #ffffff;
 }
 
 .chat-form input {
   flex-grow: 1;
   border: 1px solid #ccc;
   border-radius: 18px;
-  padding: 12px 18px; /* Sedikit lebih besar */
+  padding: 12px 18px;
   font-size: 1rem;
 }
 .chat-form input:focus {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import model from './gemini.js'; 
+import ReactMarkdown from 'react-markdown'; // <-- 1. IMPORT LIBRARY BARU
 import './App.css'; 
 
 // --- DEKLARASI SETIAP BAGIAN PROMPT ---
@@ -65,18 +66,10 @@ function App() {
       setHistory([...updatedHistory, modelMessage]);
 
     } catch (error) {
-      console.error("Error generating content:", error); // Log untuk browser console
-      
-      // ================================================================
-      // INI ADALAH PERUBAHAN PENTING (DEBUGGING)
-      // Kita akan menampilkan pesan error yang spesifik dari API
-      // ================================================================
+      console.error("Error generating content:", error);
       const specificErrorMessage = `[DEBUG] Maaf, terjadi kesalahan: ${error.message}`;
-      
       const errorMessage = { role: 'model', parts: [{ text: specificErrorMessage }] };
       setHistory([...updatedHistory, errorMessage]);
-      // ================================================================
-      
     } finally {
       setLoading(false);
     }
@@ -91,9 +84,15 @@ function App() {
       <div className="chat-window">
         {history.map((msg, index) => (
           <div key={index} className={`chat-bubble ${msg.role}`}>
-            <pre>
-              {msg.parts[0].text}
-            </pre>
+            {/* <-- 2. PERUBAHAN LOGIKA UTAMA --> */}
+            {msg.role === 'user' ? (
+              // Jika dari 'user', tampilkan sebagai teks biasa (paragraf)
+              <p>{msg.parts[0].text}</p>
+            ) : (
+              // Jika dari 'model', render menggunakan ReactMarkdown
+              <ReactMarkdown>{msg.parts[0].text}</ReactMarkdown>
+            )}
+            {/* <-- AKHIR PERUBAHAN --> */}
           </div>
         ))}
         {loading && <div className="chat-bubble model loading">...</div>}
