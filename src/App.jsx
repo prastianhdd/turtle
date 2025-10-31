@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import model from './gemini.js'; 
 import Sidebar from './Sidebar.jsx';
 import './App.css'; 
 
