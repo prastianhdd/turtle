@@ -186,3 +186,52 @@ body {
     transform: scale(1);
   }
 }
+
+/* --- (UPGRADE 2) Style untuk Tombol Salin --- */
+
+/* Jadikan kontainer model 'relative' 
+  untuk menempatkan tombol 'absolute' di dalamnya.
+*/
+.chat-bubble.model {
+  position: relative;
+  /* Hapus style lama jika ada, pastikan ini ada */
+  background-color: #ffffff;
+  color: #333;
+  align-self: stretch;
+  max-width: 100%;
+  padding: 0;
+  border-radius: 0;
+}
+
+.copy-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  color: #555;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0; /* Sembunyi secara default */
+  z-index: 10;
+}
+
+/* Tampilkan tombol HANYA saat bubble model di-hover */
+.chat-bubble.model:hover .copy-btn {
+  opacity: 1;
+}
+
+.copy-btn:hover {
+  background-color: #e0e0e0;
+}
+
+/* Style untuk tombol saat 'Disalin!' */
+.copy-btn.copied {
+  background-color: #d1e7dd; /* Hijau sukses */
+  color: #0d6837;
+  border-color: #a3d9b8;
+  opacity: 1; /* Pastikan terlihat */
+}

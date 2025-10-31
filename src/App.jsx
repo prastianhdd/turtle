@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import model from './gemini.js'; 
-import Sidebar from './Sidebar.jsx'; // <-- IMPORT KOMPONEN BARU
+import Sidebar from './Sidebar.jsx';
 import './App.css'; 
 
 // --- (Konstanta PROMPT Anda tetap sama) ---
@@ -31,28 +31,23 @@ const PROMPT_CONSTRAINTS = `Required Constraints:
 `;
 // ------------------------------------------
 
-// Fungsi helper untuk membuat chat baru
 const createNewChat = () => ({
   id: `chat-${Date.now()}`,
   title: 'Percakapan Baru',
-  messages: [], // messages sekarang adalah bagian dari objek chat
+  messages: [],
 });
 
 function App() {
-  
-  // --- STATE BARU: Mengelola SEMUA percakapan ---
   const [allChats, setAllChats] = useState(() => {
     const savedChats = localStorage.getItem('geminiMultiChat');
     if (savedChats) {
       return JSON.parse(savedChats);
     }
-    return [createNewChat()]; // Mulai dengan satu percakapan baru
+    return [createNewChat()];
   });
 
-  // --- STATE BARU: Melacak chat mana yang sedang aktif ---
   const [activeChatId, setActiveChatId] = useState(() => {
     const savedActiveId = localStorage.getItem('geminiActiveChatId');
-    // Pastikan ID yang tersimpan masih ada di allChats, jika tidak, gunakan yang pertama
     const chats = JSON.parse(localStorage.getItem('geminiMultiChat') || '[]');
     if (savedActiveId && chats.some(chat => chat.id === savedActiveId)) {
       return savedActiveId;
@@ -62,25 +57,22 @@ function App() {
 
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
+  // --- (UPGRADE 2) State untuk melacak item yang disalin ---
+  const [copiedIndex, setCopiedIndex] = useState(null);
   const chatWindowRef = useRef(null);
 
-  // --- EFEK BARU: Simpan SEMUA chat & ID aktif ---
   useEffect(() => {
     localStorage.setItem('geminiMultiChat', JSON.stringify(allChats));
     localStorage.setItem('geminiActiveChatId', activeChatId);
   }, [allChats, activeChatId]);
 
-  // --- EFEK LAMA: Scroll ke bawah (logika tetap sama) ---
   useEffect(() => {
     if (chatWindowRef.current) {
       chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
     }
-  }, [allChats, activeChatId]); // Perhatikan: trigger berubah
+  }, [allChats, activeChatId]);
 
-  // --- LOGIKA BARU: Temukan chat yang aktif saat ini ---
   const activeChat = allChats.find(chat => chat.id === activeChatId) || allChats[0];
-  // Jika activeChat tidak ditemukan (error), fallback ke chat pertama
-  // atau buat chat baru jika allChats kosong
   useEffect(() => {
     if (!activeChat && allChats.length > 0) {
       setActiveChatId(allChats[0].id);
@@ -91,20 +83,44 @@ function App() {
     }
   }, [activeChat, allChats]);
 
-
-  // --- LOGIKA BARU: Membuat chat baru ---
   const handleNewChat = () => {
     const newChat = createNewChat();
-    setAllChats([newChat, ...allChats]); // Tambahkan ke ATAS daftar
+    setAllChats([newChat, ...allChats]);
     setActiveChatId(newChat.id);
   };
 
-  // --- LOGIKA BARU: Pindah chat ---
   const handleSelectChat = (chatId) => {
     setActiveChatId(chatId);
   };
 
-  // --- LOGIKA UTAMA: handleSubmit (Diperbarui) ---
+  // --- (UPGRADE 1) Fungsi untuk Menghapus Chat ---
+  const handleDeleteChat = (chatId) => {
+    // 1. Filter chat
+    const filteredChats = allChats.filter(chat => chat.id !== chatId);
+    
+    // 2. Tentukan ID aktif baru
+    if (filteredChats.length === 0) {
+      // Jika tidak ada chat tersisa, buat satu yang baru
+      const newChat = createNewChat();
+      setAllChats([newChat]);
+      setActiveChatId(newChat.id);
+    } else if (activeChatId === chatId) {
+      // Jika chat yang aktif dihapus, pindah ke chat pertama
+      setActiveChatId(filteredChats[0].id);
+      setAllChats(filteredChats);
+    } else {
+      // Jika chat lain yang dihapus, state ID aktif tetap
+      setAllChats(filteredChats);
+    }
+  };
+
+  // --- (UPGRADE 2) Fungsi untuk Menyalin Teks ---
+  const handleCopy = (text, index) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000); // Reset setelah 2 detik
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!prompt || loading || !activeChat) return;
@@ -121,19 +137,14 @@ function App() {
 
     const userMessage = { role: 'user', parts: [{ text: prompt }] };
     const initialModelMessage = { role: 'model', parts: [{ text: "" }] };
-
-    // Tentukan apakah ini pesan pertama (untuk mengubah judul)
     const isFirstMessage = activeChat.messages.length === 0;
     
-    // Update state allChats
     setAllChats(currentChats => 
       currentChats.map(chat => {
         if (chat.id === activeChatId) {
           return {
             ...chat,
-            // Jika pesan pertama, update judul, jika tidak, biarkan
             title: isFirstMessage ? prompt.substring(0, 40) : chat.title, 
-            // Tambahkan pesan pengguna DAN placeholder model
             messages: [...chat.messages, userMessage, initialModelMessage]
           };
         }
@@ -152,12 +163,10 @@ function App() {
         const chunkText = chunk.text();
         accumulatedText += chunkText;
         
-        // Update state secara fungsional
         setAllChats(currentChats =>
           currentChats.map(chat => {
             if (chat.id === activeChatId) {
               const newMessages = [...chat.messages];
-              // Update teks di pesan TERAKHIR (placeholder model)
               newMessages[newMessages.length - 1].parts[0].text = accumulatedText;
               return { ...chat, messages: newMessages };
             }
@@ -175,7 +184,6 @@ function App() {
         currentChats.map(chat => {
           if (chat.id === activeChatId) {
             const newMessages = [...chat.messages];
-            // Ganti placeholder dengan pesan error
             newMessages[newMessages.length - 1] = errorMessage;
             return { ...chat, messages: newMessages };
           }
@@ -187,34 +195,41 @@ function App() {
     }
   };
 
-  // --- RENDER BARU: Menggunakan Layout 2 Kolom ---
   return (
-    <div className="app-layout"> {/* Kontainer utama baru */}
+    <div className="app-layout">
       
-      {/* Kolom Sidebar */}
       <Sidebar 
         allChats={allChats}
         activeChatId={activeChatId}
         onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
+        onDeleteChat={handleDeleteChat} // <-- (UPGRADE 1) Pass fungsi hapus
       />
 
-      {/* Kolom Chat Utama */}
       <div className="main-chat-area">
         <header className="app-header">
-          {/* Tampilkan judul chat yang aktif */}
           <h1>{activeChat ? activeChat.title : 'Asisten Riset'}</h1>
-          {/* Tombol 'Percakapan Baru' di sini dihapus, pindah ke Sidebar */}
         </header>
         
         <div className="chat-window" ref={chatWindowRef}>
-          {/* Render pesan HANYA dari chat yang aktif */}
           {activeChat && activeChat.messages.map((msg, index) => (
             <div key={index} className={`chat-bubble ${msg.role}`}>
               {msg.role === 'user' ? (
                 <p>{msg.parts[0].text}</p>
               ) : (
-                <ReactMarkdown>{msg.parts[0].text}</ReactMarkdown>
+                <>
+                  {/* --- (UPGRADE 2) Tombol Salin --- */}
+                  {msg.parts[0].text && (
+                    <button 
+                      onClick={() => handleCopy(msg.parts[0].text, index)} 
+                      className={`copy-btn ${copiedIndex === index ? 'copied' : ''}`}
+                      disabled={copiedIndex === index}
+                    >
+                      {copiedIndex === index ? 'Disalin!' : 'Salin'}
+                    </button>
+                  )}
+                  <ReactMarkdown>{msg.parts[0].text}</ReactMarkdown>
+                </>
               )}
             </div>
           ))}
@@ -234,8 +249,8 @@ function App() {
           <input
             type="text"
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Masukkan Topik Penelitian (misal: Blockchain dalam maksimal 300 kata)"
+            onChange={(e) => setPrompt(e.g.target.value)}
+            placeholder="Masukkan Topik Penelitian (misal: Blockchain)"
             disabled={loading}
           />
           <button type="submit" disabled={loading}>

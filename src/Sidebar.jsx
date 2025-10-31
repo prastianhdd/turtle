@@ -1,9 +1,8 @@
 import React from 'react';
-
-// Sidebar.css akan kita buat di langkah berikutnya
 import './Sidebar.css'; 
 
-function Sidebar({ allChats, activeChatId, onSelectChat, onNewChat }) {
+// --- (UPGRADE 1) Ambil 'onDeleteChat' dari props ---
+function Sidebar({ allChats, activeChatId, onSelectChat, onNewChat, onDeleteChat }) {
   return (
     <div className="sidebar">
       <div className="sidebar-header">
@@ -15,12 +14,21 @@ function Sidebar({ allChats, activeChatId, onSelectChat, onNewChat }) {
         {allChats.map((chat) => (
           <div
             key={chat.id}
-            // Terapkan kelas 'active' jika ID-nya cocok
             className={`chat-list-item ${chat.id === activeChatId ? 'active' : ''}`}
             onClick={() => onSelectChat(chat.id)}
           >
-            {/* Tampilkan judul chat, potong jika terlalu panjang */}
             <p>{chat.title.substring(0, 30)}{chat.title.length > 30 ? '...' : ''}</p>
+            
+            {/* --- (UPGRADE 1) Tombol Hapus --- */}
+            <button 
+              className="delete-chat-btn"
+              onClick={(e) => {
+                e.stopPropagation(); // Hentikan klik agar tidak pindah chat
+                onDeleteChat(chat.id);
+              }}
+            >
+              ×
+            </button>
           </div>
         ))}
       </div>
