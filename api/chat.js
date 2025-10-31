@@ -1,15 +1,10 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
-// --- AMBIL SEMUA API KEY ---
+// --- (UPGRADE) HANYA API KEY GEMINI YANG DIPERLUKAN ---
 const geminiApiKey = process.env.GEMINI_API_KEY;
-const searchApiKey = process.env.GOOGLE_SEARCH_API_KEY;
-const searchCxId = process.env.GOOGLE_SEARCH_CX_ID;
 
 if (!geminiApiKey) {
   console.error("FATAL: GEMINI_API_KEY environment variable not set.");
-}
-if (!searchApiKey || !searchCxId) {
-  console.warn("Peringatan: Google Search API Keys (SEARCH_API_KEY, SEARCH_CX_ID) tidak diatur. Mode 'Chat Normal' tidak akan bisa mencari di internet.");
 }
 
 const genAI = new GoogleGenerativeAI(geminiApiKey);
@@ -37,55 +32,10 @@ Daftar Pustaka: Wajib menyertakan Daftar Pustaka lengkap untuk setiap klaim yang
 `;
 // --------------------------------------------------------
 
-// --- (GOOGLE SEARCH TOOL, tidak perlu diubah) ---
-const googleSearchTool = {
-  functionDeclarations: [
-    {
-      name: "google_search",
-      description: "Alat untuk mencari informasi real-time di Google. Gunakan ini untuk pertanyaan tentang peristiwa terkini, cuaca, fakta (seperti 'tahun berapa sekarang?'), atau informasi apa pun yang mungkin berada di luar data pelatihan.",
-      parameters: {
-        type: "OBJECT",
-        properties: {
-          query: {
-            type: "STRING",
-            description: "Query pencarian yang akan dikirim ke Google.",
-          },
-        },
-        required: ["query"],
-      },
-    },
-  ],
-};
+// --- (GOOGLE SEARCH TOOL DIHAPUS) ---
+// --- (executeGoogleSearch DIHAPUS) ---
 
-async function executeGoogleSearch(query) {
-  if (!searchApiKey || !searchCxId) {
-    return JSON.stringify({ error: "Failed to fetch search results.", details: "Variabel GOOGLE_SEARCH_API_KEY atau GOOGLE_SEARCH_CX_ID tidak diatur di server." });
-  }
-  
-  try {
-    const url = `https://www.googleapis.com/customsearch/v1?key=${searchApiKey}&cx=${searchCxId}&q=${encodeURIComponent(query)}&num=3`;
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (!response.ok) {
-      const errorDetails = data.error?.message || `HTTP error! status: ${response.status}`;
-      return JSON.stringify({ error: "Failed to fetch search results.", details: errorDetails });
-    }
-    
-    const results = data.items?.map(item => ({
-      title: item.title,
-      snippet: item.snippet,
-      link: item.link,
-    })) || [];
-    
-    return JSON.stringify(results);
-  } catch (error) {
-    console.error("Error executing Google Search:", error.message);
-    return JSON.stringify({ error: "Failed to fetch search results.", details: error.message });
-  }
-}
-
-// --- (SAFETY SETTINGS, tidak perlu diubah) ---
+// --- (SAFETY SETTINGS, tidak perlu diubah, ini bagus) ---
 const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
   { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -93,16 +43,18 @@ const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
+// --- (UPGRADE) Definisikan Model Sesuai Permintaan Anda ---
 const researchModel = genAI.getGenerativeModel({ 
-  model: "gemini-1.5-flash",
+  model: "gemini-2.5-pro", // Sesuai permintaan Anda
   safetySettings: safetySettings
 });
 
 const normalModel = genAI.getGenerativeModel({ 
-  model: "gemini-1.5-flash",
-  tools: googleSearchTool,
+  model: "gemini-2.5-flash", // Sesuai permintaan Anda
+  // 'tools' dihapus
   safetySettings: safetySettings
 });
+// --------------------------------------------------------
 
 // --- HANDLER API UTAMA ---
 export default async function handler(req, res) {
@@ -133,12 +85,21 @@ export default async function handler(req, res) {
       
       const result = await researchModel.generateContentStream(fullPrompt);
       for await (const chunk of result.stream) {
-        res.write(chunk.text());
+        // Cek safety block (penting)
+        if (chunk.promptFeedback && chunk.promptFeedback.blockReason) {
+          const blockReason = chunk.promptFeedback.blockReason;
+          console.error(`Stream Riset diblokir: ${blockReason}`);
+          res.write(`[DEBUG] Permintaan Anda diblokir oleh filter keamanan: ${blockReason}.`);
+          break;
+        }
+        if (chunk.text()) {
+          res.write(chunk.text());
+        }
       }
       res.end();
 
     } else {
-      // --- MODE NORMAL (Dengan Perbaikan) ---
+      // --- MODE NORMAL (Disederhanakan: Tanpa Tools) ---
       const geminiHistory = history.map(msg => ({
         role: msg.role,
         parts: msg.parts,
@@ -149,50 +110,15 @@ export default async function handler(req, res) {
 
       for await (const chunk of stream) {
         
-        // --- (UPGRADE) PERIKSA SAFETY BLOCK DI SINI ---
+        // Cek safety block (penting)
         if (chunk.promptFeedback && chunk.promptFeedback.blockReason) {
           const blockReason = chunk.promptFeedback.blockReason;
-          console.error(`Stream diblokir oleh safety filter: ${blockReason}`);
+          console.error(`Stream Normal diblokir: ${blockReason}`);
           res.write(`[DEBUG] Permintaan Anda ("${currentUserPrompt}") diblokir oleh filter keamanan: ${blockReason}. Coba gunakan prompt yang lain.`);
-          break; // Hentikan loop
+          break;
         }
-        // --- AKHIR UPGRADE ---
 
-        const functionCalls = chunk.functionCalls();
-
-        if (functionCalls && functionCalls.length > 0) {
-          const firstCall = functionCalls[0]; 
-          
-          if (firstCall.name === "google_search") {
-            const query = firstCall.args.query;
-            const searchResult = await executeGoogleSearch(query);
-            
-            let searchData;
-            try { searchData = JSON.parse(searchResult); } catch(e) { /* abaikan */ }
-            
-            if (searchData && searchData.error) {
-              console.error("Google Search Gagal:", searchData.details);
-              res.write(`[DEBUG] Gagal memanggil Google Search. 
-Kesalahan: ${searchData.details}
-
-(Pastikan GOOGLE_SEARCH_API_KEY dan GOOGLE_SEARCH_CX_ID benar, dan 'Custom Search API' sudah di-Enable di Google Cloud).`);
-              break;
-            }
-
-            stream = (await chat.sendMessageStream([
-              {
-                functionResponse: {
-                  name: "google_search",
-                  response: {
-                    content: searchResult,
-                  },
-                },
-              },
-            ])).stream;
-            
-            continue;
-          }
-        }
+        // --- (LOGIKA FUNCTION CALL DIHAPUS) ---
         
         if (chunk.text()) {
           res.write(chunk.text());
