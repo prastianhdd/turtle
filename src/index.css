@@ -66,3 +66,10 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+.chat-bubble pre {
+  white-space: pre-wrap; /* Memastikan teks pindah baris */
+  font-family: inherit;  /* Menggunakan font yang sama dengan seluruh aplikasi */
+  font-size: inherit;
+  margin: 0;
+}
