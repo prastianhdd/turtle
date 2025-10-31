@@ -18,20 +18,43 @@ body {
   flex-direction: column;
 }
 
-/* 3. Header Judul */
+/* --- (POIN 4) PERUBAHAN HEADER --- */
 .app-header {
-  padding: 1.5rem 0.5rem;
+  padding: 1rem 0.5rem; /* Sedikit mengurangi padding */
   text-align: center;
   background-color: #fafafa;
   border-radius: 8px;
   margin-bottom: 2rem;
+  /* Tambahkan flexbox untuk menampung tombol */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .app-header h1 {
   margin: 0;
   font-size: 1.5rem;
   color: #1f1f1f;
+  margin-left: 1.5rem; /* Beri jarak */
 }
+
+/* --- (POIN 4) STYLE TOMBOL BARU --- */
+.new-chat-btn {
+  background-color: #e0e0e0;
+  color: #333;
+  border: none;
+  border-radius: 18px;
+  padding: 10px 16px;
+  margin-right: 1.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+.new-chat-btn:hover {
+  background-color: #d5d5d5;
+}
+
 
 /* 4. Jendela Chat (Daftar Pesan) */
 .chat-window {
@@ -58,9 +81,8 @@ body {
   align-self: flex-end;
   border-bottom-right-radius: 4px;
 }
-/* Style teks di dalam bubble pengguna */
 .chat-bubble.user p {
-  margin: 0; /* Pastikan tidak ada margin tambahan */
+  margin: 0;
 }
 
 
@@ -73,55 +95,70 @@ body {
   padding: 0;
   border-radius: 0;
 }
-.chat-bubble.model.loading {
-  font-style: italic;
-  color: #888;
+
+
+/* --- (POIN 1 & 2) INDIKATOR LOADING BARU --- */
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.loading-indicator span {
+  height: 10px;
+  width: 10px;
+  background-color: #adadad;
+  border-radius: 50%;
+  margin: 0 3px;
+  /* Terapkan animasi */
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+/* Tunda animasi untuk titik kedua dan ketiga */
+.loading-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loading-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Definisikan animasi 'bounce' */
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+  } 40% {
+    transform: scale(1.0);
+  }
 }
 
 
-/* * 8. PERUBAHAN UTAMA: STYLING UNTUK KONTEN MARKDOWN
- * Ini akan men-style output dari react-markdown
- */
-
-/* Paragraf standar */
+/* 8. STYLING UNTUK KONTEN MARKDOWN */
 .chat-bubble.model p {
   font-size: 1rem;
   line-height: 1.6;
-  margin-bottom: 1rem; /* Spasi antar paragraf */
+  margin-bottom: 1rem;
   color: #1f1f1f;
 }
-
-/* Headings (Judul) */
 .chat-bubble.model h1, 
 .chat-bubble.model h2, 
 .chat-bubble.model h3 {
   font-weight: 600;
-  margin-top: 2rem;    /* Beri spasi di atas judul */
+  margin-top: 2rem;
   margin-bottom: 0.5rem;
   color: #000;
 }
-
 .chat-bubble.model h1 { font-size: 1.8rem; }
 .chat-bubble.model h2 { font-size: 1.5rem; }
 .chat-bubble.model h3 { font-size: 1.25rem; }
-
-/* Lists (Bullet & Angka) */
 .chat-bubble.model ul, 
 .chat-bubble.model ol {
-  padding-left: 2rem; /* Indentasi list */
+  padding-left: 2rem;
   margin-bottom: 1rem;
   line-height: 1.6;
 }
-
-/* Bold */
-.chat-bubble.model strong {
-  font-weight: bold;
-}
-
-/* Italic */
-.chat-bubble.model em {
-  font-style: italic;
-}
+.chat-bubble.model strong { font-weight: bold; }
+.chat-bubble.model em { font-style: italic; }
 
 
 /* 9. Formulir Input */
@@ -133,7 +170,6 @@ body {
   bottom: 0;
   background-color: #ffffff;
 }
-
 .chat-form input {
   flex-grow: 1;
   border: 1px solid #ccc;
@@ -146,7 +182,6 @@ body {
   border-color: #007bff;
   box-shadow: 0 0 5px rgba(0,123,255,0.3);
 }
-
 .chat-form button {
   background-color: #007bff;
   color: white;
@@ -157,7 +192,6 @@ body {
   cursor: pointer;
   font-size: 1rem;
 }
-
 .chat-form button:disabled {
   background-color: #a0cfff;
   cursor: not-allowed;

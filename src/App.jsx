@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // <-- IMPORT useEffect
+import ReactMarkdown from 'react-markdown';
 import model from './gemini.js'; 
-import ReactMarkdown from 'react-markdown'; // <-- 1. IMPORT LIBRARY BARU
 import './App.css'; 
 
 // --- DEKLARASI SETIAP BAGIAN PROMPT ---
@@ -34,9 +34,26 @@ const PROMPT_CONSTRAINTS = `Required Constraints:
 // ------------------------------------------
 
 function App() {
-  const [history, setHistory] = useState([]); 
+  
+  // --- (POIN 3) Load history dari localStorage saat pertama kali render ---
+  const [history, setHistory] = useState(() => {
+    const savedHistory = localStorage.getItem('chatHistory');
+    return savedHistory ? JSON.parse(savedHistory) : [];
+  });
+  
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // --- (POIN 3) Simpan history ke localStorage setiap kali history berubah ---
+  useEffect(() => {
+    localStorage.setItem('chatHistory', JSON.stringify(history));
+  }, [history]);
+
+
+  // --- (POIN 4) Fungsi untuk memulai percakapan baru ---
+  const handleNewChat = () => {
+    setHistory([]); // Cukup kosongkan state, useEffect akan otomatis menyimpannya
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -79,23 +96,33 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1>Asisten Riset Akademik</h1>
+        {/* --- (POIN 4) Tombol Percakapan Baru --- */}
+        <button onClick={handleNewChat} className="new-chat-btn">
+          Percakapan Baru
+        </button>
       </header>
       
       <div className="chat-window">
         {history.map((msg, index) => (
           <div key={index} className={`chat-bubble ${msg.role}`}>
-            {/* <-- 2. PERUBAHAN LOGIKA UTAMA --> */}
             {msg.role === 'user' ? (
-              // Jika dari 'user', tampilkan sebagai teks biasa (paragraf)
               <p>{msg.parts[0].text}</p>
             ) : (
-              // Jika dari 'model', render menggunakan ReactMarkdown
               <ReactMarkdown>{msg.parts[0].text}</ReactMarkdown>
             )}
-            {/* <-- AKHIR PERUBAHAN --> */}
           </div>
         ))}
-        {loading && <div className="chat-bubble model loading">...</div>}
+
+        {/* --- (POIN 1 & 2) Indikator Loading Baru --- */}
+        {loading && (
+          <div className="chat-bubble model">
+            <div className="loading-indicator">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        )}
       </div>
 
       <form className="chat-form" onSubmit={handleSubmit}>
