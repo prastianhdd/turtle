@@ -80,7 +80,7 @@ function App() {
     }
   }, [activeChat, allChats]);
 
-  // --- (UPGRADE 3) Modifikasi: Tutup sidebar setelah aksi ---
+
   const handleNewChat = () => {
     const newChat = createNewChat();
     setAllChats([newChat, ...allChats]);
@@ -88,7 +88,6 @@ function App() {
     setIsSidebarOpen(false); // Tutup sidebar
   };
 
-  // --- (UPGRADE 3) Modifikasi: Tutup sidebar setelah aksi ---
   const handleSelectChat = (chatId) => {
     setActiveChatId(chatId);
     setIsSidebarOpen(false); // Tutup sidebar
@@ -107,7 +106,7 @@ function App() {
     } else {
       setAllChats(filteredChats);
     }
-    // Tidak perlu tutup sidebar, karena tombol hapus ada di dalam sidebar
+
   };
 
   const handleCopy = (text, index) => {
@@ -191,7 +190,6 @@ function App() {
   };
 
   return (
-    // --- (UPGRADE 3) Tambah kelas kondisional 'sidebar-open' ---
     <div className={`app-layout ${isSidebarOpen ? 'sidebar-open' : ''}`}>
       
       {/* --- (UPGRADE 3) Overlay untuk mobile --- */}

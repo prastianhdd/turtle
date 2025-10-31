@@ -1,15 +1,13 @@
-/* Styling untuk Sidebar */
 .sidebar {
   width: 260px;
   background-color: #f7f7f7;
   border-right: 1px solid #e0e0e0;
   display: flex;
   flex-direction: column;
-  height: 100vh; /* Tinggi penuh di desktop */
+  height: 100dvh; 
   flex-shrink: 0;
-  /* (UPGRADE 3) Tambahan untuk Mobile */
-  position: relative; /* Default di desktop */
-  z-index: 10; /* Di atas konten tapi di bawah overlay */
+  position: relative; 
+  z-index: 10; 
 }
 
 .sidebar-header {
@@ -96,26 +94,23 @@
   color: #000;
 }
 
-/* --- (UPGRADE) Style untuk Copyright Footer --- */
 .sidebar-footer {
-  /* Ini akan menempel di bawah karena .sidebar-chat-list
-    memiliki 'flex-grow: 1'
-  */
-  flex-shrink: 0; /* Mencegah footer menyusut */
+
+  flex-shrink: 0; 
   padding: 1rem;
   border-top: 1px solid #e0e0e0;
-  background-color: #f0f0f0; /* Sedikit beda warna */
+  background-color: #f0f0f0; 
 }
 
 .sidebar-footer p {
   margin: 0;
   text-align: center;
-  font-size: 0.8rem; /* Teks kecil */
-  color: #555; /* Warna abu-abu */
+  font-size: 0.8rem; 
+  color: #555; 
 }
 
 .sidebar-footer a {
-  color: #007bff; /* Warna biru primer */
+  color: #007bff; 
   font-weight: 600;
   text-decoration: none;
 }

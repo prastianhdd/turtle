@@ -68,8 +68,8 @@ button:focus-visible {
 }
 
 .chat-bubble pre {
-  white-space: pre-wrap; /* Memastikan teks pindah baris */
-  font-family: inherit;  /* Menggunakan font yang sama dengan seluruh aplikasi */
+  white-space: pre-wrap; 
+  font-family: inherit;  
   font-size: inherit;
   margin: 0;
 }
