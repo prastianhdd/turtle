@@ -9,6 +9,6 @@ if (!apiKey) {
 const genAI = new GoogleGenerativeAI(apiKey);
 
 // Pilih model.
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 
 export default model;

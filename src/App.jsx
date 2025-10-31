@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef } from 'react'; // <-- IMPORT useRef
+import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import model from './gemini.js'; 
 import './App.css'; 
 
-// --- (Semua konstanta PROMPT Anda tetap sama, tidak perlu diubah) ---
+// --- (Semua konstanta PROMPT Anda tetap sama) ---
 const PROMPT_ROLE = `Role: Peneliti Akademik / Analis Riset\n\n`;
 const PROMPT_TASK = `Task: 
-1. Melakukan penelitian literatur (studi pustaka) yang mendalam dan kritis mengenai topik di bawah ini.
+1. Melakukan penelitian literatur (studi pusaka) yang mendalam dan kritis mengenai topik di bawah ini.
 2. Mengidentifikasi, menganalisis, dan mensintesis informasi dari berbagai sumber kredibel.
 3. Menghasilkan rangkuman sintetis yang koheren, komprehensif, dan objektif berdasarkan temuan penelitian.\n\n`;
 const PROMPT_SINTESIS = `Sintesis & Penulisan :
@@ -38,13 +38,10 @@ function App() {
   
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
-  
-  // Ref untuk men-scroll otomatis ke bagian bawah
   const chatWindowRef = useRef(null);
 
   useEffect(() => {
     localStorage.setItem('chatHistory', JSON.stringify(history));
-    // Scroll ke bawah setiap kali history berubah
     if (chatWindowRef.current) {
       chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
     }
@@ -54,7 +51,6 @@ function App() {
     setHistory([]);
   };
 
-  // --- FUNGSI UTAMA DENGAN LOGIKA STREAMING ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!prompt || loading) return;
@@ -70,28 +66,26 @@ function App() {
       PROMPT_CONSTRAINTS;
 
     const userMessage = { role: 'user', parts: [{ text: prompt }] };
-    
-    // 1. Tambahkan pesan pengguna DAN "placeholder" kosong untuk AI
     const initialModelMessage = { role: 'model', parts: [{ text: "" }] };
     setHistory([...history, userMessage, initialModelMessage]);
     setPrompt('');
 
     try {
-      // 2. Dapatkan stream dari API
-      const stream = await model.generateContentStream(fullPrompt);
+      // 2. Dapatkan hasil stream dari API
+      //    INI ADALAH PERUBAHANNYA:
+      const result = await model.generateContentStream(fullPrompt);
+      //    DAN INI ADALAH PERBAIKANNYA (BARIS BARU):
+      const stream = result.stream; 
 
-      let accumulatedText = ""; // String untuk mengumpulkan teks
+      let accumulatedText = "";
       
-      // 3. Looping melalui stream
-      for await (const chunk of stream) {
+      // 3. Looping melalui 'stream', bukan 'result'
+      for await (const chunk of stream) { // <-- Ini sekarang sudah benar
         const chunkText = chunk.text();
-        accumulatedText += chunkText; // Tambahkan chunk baru ke teks
+        accumulatedText += chunkText;
         
-        // 4. Update state history dengan cara yang "fungsional"
-        // Ini menggantikan item terakhir di array dengan versi barunya
         setHistory(currentHistory => {
           const newHistory = [...currentHistory];
-          // Update teks dari pesan model (item terakhir)
           newHistory[newHistory.length - 1].parts[0].text = accumulatedText;
           return newHistory;
         });
@@ -100,9 +94,13 @@ function App() {
     } catch (error) {
       console.error("Error generating content:", error);
       const specificErrorMessage = `[DEBUG] Maaf, terjadi kesalahan: ${error.message}`;
-      // Tambahkan pesan error sebagai item baru
       const errorMessage = { role: 'model', parts: [{ text: specificErrorMessage }] };
-      setHistory(currentHistory => [...currentHistory, errorMessage]);
+      setHistory(currentHistory => {
+        const newHistory = [...currentHistory];
+        // Ganti pesan "loading" yang kosong dengan pesan error
+        newHistory[newHistory.length - 1] = errorMessage; 
+        return newHistory;
+      });
     } finally {
       setLoading(false);
     }
@@ -117,21 +115,18 @@ function App() {
         </button>
       </header>
       
-      {/* Tambahkan ref ke chat window */}
       <div className="chat-window" ref={chatWindowRef}>
         {history.map((msg, index) => (
           <div key={index} className={`chat-bubble ${msg.role}`}>
             {msg.role === 'user' ? (
               <p>{msg.parts[0].text}</p>
             ) : (
-              // ReactMarkdown akan me-render ulang saat teks di-stream
               <ReactMarkdown>{msg.parts[0].text}</ReactMarkdown>
             )}
           </div>
         ))}
-
-        {/* --- Indikator Loading BUKAN LAGI BUBBLE --- */}
-        {/* Kita akan memodifikasinya agar sejajar dengan input box */}
+        
+        {/* Indikator loading sekarang muncul di bawah, bukan sebagai bubble */}
         {loading && (
           <div className="loading-indicator-container">
             <div className="loading-indicator">
@@ -152,7 +147,6 @@ function App() {
           disabled={loading}
         />
         <button type="submit" disabled={loading}>
-          {/* Ubah teks tombol saat loading */}
           {loading ? 'Memproses...' : 'Kirim'}
         </button>
       </form>
