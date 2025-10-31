@@ -83,7 +83,7 @@ async function executeGoogleSearch(query) {
 // --- (UPGRADE 5.B) MODEL UNTUK SETIAP MODE ---
 const researchModel = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 const normalModel = genAI.getGenerativeModel({ 
-  model: "gemini-2.5-flash",
+  model: "gemini-2.5-pro",
   tools: googleSearchTool
 });
 
