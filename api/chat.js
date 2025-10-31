@@ -1,4 +1,3 @@
-// --- (UPGRADE) Impor modul safety ---
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 // --- AMBIL SEMUA API KEY ---
@@ -86,41 +85,26 @@ async function executeGoogleSearch(query) {
   }
 }
 
-// --- (UPGRADE) Definisikan Safety Settings untuk mematikan filter ---
+// --- (SAFETY SETTINGS, tidak perlu diubah) ---
 const safetySettings = [
-  {
-    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-    threshold: HarmBlockThreshold.BLOCK_NONE,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-    threshold: HarmBlockThreshold.BLOCK_NONE,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-    threshold: HarmBlockThreshold.BLOCK_NONE,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-    threshold: HarmBlockThreshold.BLOCK_NONE,
-  },
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
-// --------------------------------------------------------
 
-// --- (UPGRADE) Terapkan Safety Settings ke Model ---
 const researchModel = genAI.getGenerativeModel({ 
   model: "gemini-1.5-flash",
-  safetySettings: safetySettings // <--- Tambahkan ini
+  safetySettings: safetySettings
 });
 
 const normalModel = genAI.getGenerativeModel({ 
   model: "gemini-1.5-flash",
   tools: googleSearchTool,
-  safetySettings: safetySettings // <--- Tambahkan ini
+  safetySettings: safetySettings
 });
-// --------------------------------------------------------
 
-// --- HANDLER API UTAMA (Tidak berubah dari langkah terakhir) ---
+// --- HANDLER API UTAMA ---
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
@@ -143,6 +127,7 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-cache');
 
     if (mode === 'research') {
+      // --- MODE RISET (Tidak Berubah) ---
       const PROMPT_TOPIK = `Topic: ${currentUserPrompt}\n\n`;
       const fullPrompt = PROMPT_ROLE + PROMPT_TASK + PROMPT_TOPIK + PROMPT_SINTESIS + PROMPT_CONSTRAINTS;
       
@@ -153,6 +138,7 @@ export default async function handler(req, res) {
       res.end();
 
     } else {
+      // --- MODE NORMAL (Dengan Perbaikan) ---
       const geminiHistory = history.map(msg => ({
         role: msg.role,
         parts: msg.parts,
@@ -162,6 +148,16 @@ export default async function handler(req, res) {
       let stream = (await chat.sendMessageStream(currentUserPrompt)).stream;
 
       for await (const chunk of stream) {
+        
+        // --- (UPGRADE) PERIKSA SAFETY BLOCK DI SINI ---
+        if (chunk.promptFeedback && chunk.promptFeedback.blockReason) {
+          const blockReason = chunk.promptFeedback.blockReason;
+          console.error(`Stream diblokir oleh safety filter: ${blockReason}`);
+          res.write(`[DEBUG] Permintaan Anda ("${currentUserPrompt}") diblokir oleh filter keamanan: ${blockReason}. Coba gunakan prompt yang lain.`);
+          break; // Hentikan loop
+        }
+        // --- AKHIR UPGRADE ---
+
         const functionCalls = chunk.functionCalls();
 
         if (functionCalls && functionCalls.length > 0) {
