@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     }
 
     // 3. Logika streaming
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
     const result = await model.generateContentStream(fullPrompt);
     const stream = result.stream;
 
