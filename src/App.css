@@ -336,3 +336,65 @@ body {
     padding: 1rem;
   }
 }
+
+/* --- (UPGRADE 4) Keyframes untuk Animasi "Smooth" --- */
+
+/* Animasi untuk seluruh konten chat window saat diganti */
+@keyframes fadeInContent {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Animasi untuk setiap bubble baru yang muncul */
+@keyframes fadeInBubble {
+  from {
+    opacity: 0;
+    transform: translateY(10px); /* Mulai dari 10px di bawah */
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Terapkan Animasi ke Elemen --- */
+
+/* 1. Terapkan ke Jendela Chat */
+.chat-window {
+  /* ... semua style lama Anda ... */
+  
+  /* Terapkan animasi fadeInContent saat 'key' berubah */
+  animation: fadeInContent 0.3s ease-out;
+}
+
+/* 2. Terapkan ke Bubble Chat */
+.chat-bubble {
+  /* ... semua style lama Anda ... */
+  
+  /* Terapkan animasi fadeInBubble ke setiap bubble */
+  animation: fadeInBubble 0.4s ease-out;
+}
+
+/* 3. Polish Tombol & Input (Transisi Halus) */
+
+/* Pastikan semua elemen yang bisa diklik punya transisi */
+button, 
+.new-chat-btn-sidebar, 
+.chat-list-item, 
+.copy-btn, 
+.delete-chat-btn {
+  /* 'all' akan menganimasikan perubahan background, warna, dll. */
+  transition: all 0.2s ease-in-out;
+}
+
+/* Tambahkan transisi ke input form */
+.chat-form input {
+  /* ... semua style lama Anda ... */
+  
+  /* Animasikan perubahan border dan box-shadow saat di-klik */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}

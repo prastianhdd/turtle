@@ -219,7 +219,8 @@ function App() {
           <h1>{activeChat ? activeChat.title : 'Asisten Riset'}</h1>
         </header>
         
-        <div className="chat-window" ref={chatWindowRef}>
+        {/* --- (UPGRADE) Tambahkan 'key' untuk memicu animasi saat ganti chat --- */}
+        <div className="chat-window" ref={chatWindowRef} key={activeChatId}>
           {activeChat && activeChat.messages.map((msg, index) => (
             <div key={index} className={`chat-bubble ${msg.role}`}>
               {msg.role === 'user' ? (
