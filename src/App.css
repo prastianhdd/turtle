@@ -2,23 +2,27 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   background-color: #f0f2f5;
   margin: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
+  /* Padding memberi sedikit ruang di sisi kiri/kanan halaman */
+  padding: 1rem;
 }
 
 .app {
   width: 100%;
-  max-width: 600px;
-  height: 80vh;
+  /* INI PERUBAHAN UTAMA: Lebar maksimal sekarang jauh lebih besar */
+  max-width: 960px;
+  
+  /* Kita gunakan margin 'auto' untuk memusatkan blok di halaman */
+  margin: 2rem auto;
+
+  /* Kita hapus tinggi '80vh' yang kaku */
+  min-height: 80vh; /* Tetap ada tinggi minimal */
+  
   background-color: #ffffff;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
 }
-
 .app-header {
   padding: 16px;
   border-bottom: 1px solid #ddd;
@@ -54,10 +58,20 @@ body {
   border-bottom-right-radius: 4px;
 }
 
+.chat-bubble pre {
+  white-space: pre-wrap;   /* Ini sudah ada, bagus untuk membungkus teks */
+  font-family: inherit;    /* Menggunakan font aplikasi, bukan font 'code' */
+  font-size: 1rem;         /* Ukuran font yang standar dan nyaman */
+  line-height: 1.6;        /* SANGAT PENTING: Menambah spasi antar baris */
+  margin: 0;
+}
+
 .chat-bubble.model {
   background-color: #e9ecef;
   color: #333;
-  align-self: flex-start;
+  /* MEMPERBARUI INI: Biarkan bubble model merentang penuh */
+  align-self: stretch; /* Ganti dari 'flex-start' */
+  max-width: 100%;     /* Ganti dari '70%' */
   border-bottom-left-radius: 4px;
 }
 
