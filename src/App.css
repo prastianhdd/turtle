@@ -235,7 +235,6 @@ body {
   animation-delay: 0.4s;
 }
 
-/* Keyframes untuk 'pulse' */
 @keyframes pulse {
   0%, 100% {
     opacity: 0.3;
