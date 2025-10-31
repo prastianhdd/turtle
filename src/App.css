@@ -196,3 +196,53 @@ body {
   background-color: #a0cfff;
   cursor: not-allowed;
 }
+
+/* --- (POIN 1) STYLE LOADING BARU --- */
+
+/* Kontainer untuk menempatkan loading di atas form */
+.loading-indicator-container {
+  display: flex;
+  justify-content: center; /* Pusatkan secara horizontal */
+  padding: 1rem;
+}
+
+/* Animasi 'pulsing' yang lebih modern */
+.loading-indicator {
+  width: 60px; /* Lebar total */
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+}
+
+.loading-indicator span {
+  height: 10px;
+  width: 10px;
+  background-color: #007bff; /* Warna biru yang sama dengan tombol */
+  border-radius: 50%;
+  
+  /* Animasi baru: 'pulse' */
+  animation: pulse 1.2s infinite ease-in-out;
+}
+
+/* Tunda animasi untuk setiap titik */
+.loading-indicator span:nth-child(1) {
+  animation-delay: 0s;
+}
+.loading-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.loading-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Keyframes untuk 'pulse' */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
