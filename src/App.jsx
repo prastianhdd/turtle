@@ -21,7 +21,7 @@ const PROMPT_SINTESIS = `Sintesis & Penulisan :
 const PROMPT_CONSTRAINTS = `Required Constraints:
 - Kredibilitas Sumber: Referensi utama HARUS berasal dari sumber ilmiah atau akademik (Jurnal, Buku Akademik, Laporan Penelitian Resmi, Prosiding Konferensi).
 - Eksklusi Sumber: Dilarang menggunakan blog pribadi, forum, media sosial, atau Wikipedia sebagai sumber sitasi.
-- Relevansi Waktu: Prioritaskan sumber 5-10 tahun terakhir, kecuali topik bersifat historis.
+- Relevansi Waktu: Prioritaskan sumber terbaru dan maksimal 5 tahun terakhir, kecuali topik bersifat historis.
 - Daftar Pustaka: Wajib menyertakan Daftar Pustaka lengkap untuk setiap klaim yang diparafrasa.
 `;
 // ------------------------------------------
