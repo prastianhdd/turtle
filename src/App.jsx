@@ -25,7 +25,7 @@ const PROMPT_SINTESIS = `Sintesis & Penulisan :
 const PROMPT_CONSTRAINTS = `Required Constraints:
 1. Referensi utama HARUS berasal dari sumber ilmiah atau akademik (Jurnal, Buku Akademik, Laporan Penelitian Resmi, Prosiding Konferensi).
 2. Dilarang menggunakan blog pribadi, forum, media sosial, atau Wikipedia sebagai sumber sitasi.
-3. Prioritaskan sumber 5-10 tahun terakhir, kecuali topik bersifat historis.
+3. Prioritaskan sumber maksimal 5 tahun terakhir (sekarang tahun 2025) kecuali topik bersifat historis.
 4. Wajib menyertakan Daftar Pustaka lengkap untuk setiap klaim yang diparafrasa.
 `;
 // --- (UPGRADE 4) Tambahkan 'mode' ke chat baru ---
