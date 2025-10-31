@@ -65,14 +65,11 @@ async function executeGoogleSearch(query) {
       throw new Error(`Google Search API error! status: ${response.status}`);
     }
     const data = await response.json();
-    
-    // Format hasil agar ringkas untuk AI
     const results = data.items?.map(item => ({
       title: item.title,
       snippet: item.snippet,
       link: item.link,
     })) || [];
-    
     return JSON.stringify(results);
   } catch (error) {
     console.error("Error executing Google Search:", error.message);
@@ -80,10 +77,9 @@ async function executeGoogleSearch(query) {
   }
 }
 
-// --- (UPGRADE 5.B) MODEL UNTUK SETIAP MODE ---
-const researchModel = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+const researchModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 const normalModel = genAI.getGenerativeModel({ 
-  model: "gemini-2.5-pro",
+  model: "gemini-1.5-flash",
   tools: googleSearchTool
 });
 
@@ -98,23 +94,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Ambil payload baru dari frontend
     const { currentUserPrompt, history, mode } = req.body;
 
     if (!currentUserPrompt) {
       return res.status(400).json({ error: 'currentUserPrompt is required' });
     }
 
-    // Atur header streaming
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Transfer-Encoding', 'chunked');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('Cache-Control', 'no-cache');
 
-    // --- LOGIKA BERDASARKAN MODE ---
-
     if (mode === 'research') {
-      // --- MODE RISET (Sama seperti lama, tapi prompt dibangun di sini) ---
+      // --- MODE RISET (Tidak Berubah) ---
       const PROMPT_TOPIK = `Topic: ${currentUserPrompt}\n\n`;
       const fullPrompt = PROMPT_ROLE + PROMPT_TASK + PROMPT_TOPIK + PROMPT_SINTESIS + PROMPT_CONSTRAINTS;
       
@@ -125,26 +117,28 @@ export default async function handler(req, res) {
       res.end();
 
     } else {
-      // --- MODE NORMAL (Dengan Google Search) ---
-      
-      // Konversi riwayat 'messages' ke format yang dipahami Gemini
+      // --- MODE NORMAL (Dengan Perbaikan) ---
       const geminiHistory = history.map(msg => ({
         role: msg.role,
         parts: msg.parts,
       }));
 
       const chat = normalModel.startChat({ history: geminiHistory });
-      
-      // Kirim pesan baru
       let stream = (await chat.sendMessageStream(currentUserPrompt)).stream;
 
       for await (const chunk of stream) {
-        // Cek apakah AI meminta kita memanggil 'tool'
-        const functionCall = chunk.functionCall();
+        // === INI ADALAH PERBAIKANNYA ===
+        // Ganti dari functionCall() (tunggal) ke functionCalls() (array)
+        const functionCalls = chunk.functionCalls();
+        // ================================
 
-        if (functionCall) {
-          if (functionCall.name === "google_search") {
-            const query = functionCall.args.query;
+        if (functionCalls && functionCalls.length > 0) {
+          // Kita hanya akan memproses panggilan pertama,
+          // karena kita hanya punya satu alat (google_search)
+          const firstCall = functionCalls[0]; 
+          
+          if (firstCall.name === "google_search") {
+            const query = firstCall.args.query;
             
             // Eksekusi pencarian
             const searchResult = await executeGoogleSearch(query);
