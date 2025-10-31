@@ -285,7 +285,7 @@ body {
 
   .main-chat-area {
     width: 100%;
-    height: 100vh; /* Pastikan area chat tetap 100% tinggi layar */
+    height: 100dvh; /* Pastikan area chat tetap 100% tinggi layar */
   }
   
   /* Tampilkan tombol menu */
@@ -398,3 +398,4 @@ button,
   /* Animasikan perubahan border dan box-shadow saat di-klik */
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
+
