@@ -1,80 +1,73 @@
 /* 1. Pengaturan Dasar Halaman */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  background-color: #ffffff;
+  /* Latar belakang halaman utama kita ubah jadi putih */
+  background-color: #ffffff; 
   margin: 0;
   color: #333;
+  /* Mencegah scroll di body, biarkan kontainer yang scroll */
+  overflow: hidden; 
 }
 
-/* 2. Kontainer Aplikasi Utama */
-.app {
-  width: 100%;
-  max-width: 960px;
-  margin: 1rem auto;
-  background-color: #ffffff;
-  box-shadow: none;
-  border-radius: 0;
+/* 2. KONTAINER UTAMA BARU (2 Kolom) */
+.app-layout {
+  display: flex;
+  height: 100vh; /* Penuh tinggi layar */
+  width: 100vw; /* Penuh lebar layar */
+}
+
+/* 3. AREA CHAT UTAMA (KOLOM KANAN) */
+.main-chat-area {
+  flex-grow: 1; /* Ambil sisa ruang */
   display: flex;
   flex-direction: column;
+  height: 100vh; /* Penuh tinggi kolom */
+  background-color: #ffffff;
 }
 
-/* --- (POIN 4) PERUBAHAN HEADER --- */
+/* 4. Header Judul (Di dalam Kolom Kanan) */
 .app-header {
-  padding: 1rem 0.5rem; /* Sedikit mengurangi padding */
-  text-align: center;
-  background-color: #fafafa;
-  border-radius: 8px;
-  margin-bottom: 2rem;
-  /* Tambahkan flexbox untuk menampung tombol */
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  padding: 1.5rem 2rem; /* Beri padding lebih */
+  text-align: left; /* Ratakan kiri */
+  background-color: #ffffff;
+  border-bottom: 1px solid #f0f0f0; /* Garis batas halus */
+  margin-bottom: 0; /* Hapus margin */
+  flex-shrink: 0; /* Jangan menyusut */
 }
 
 .app-header h1 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.3rem; /* Sedikit lebih kecil */
   color: #1f1f1f;
-  margin-left: 1.5rem; /* Beri jarak */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* --- (POIN 4) STYLE TOMBOL BARU --- */
+/* Hapus tombol 'New Chat' lama dari header */
 .new-chat-btn {
-  background-color: #e0e0e0;
-  color: #333;
-  border: none;
-  border-radius: 18px;
-  padding: 10px 16px;
-  margin-right: 1.5rem;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
-.new-chat-btn:hover {
-  background-color: #d5d5d5;
+  display: none; 
 }
 
-
-/* 4. Jendela Chat (Daftar Pesan) */
+/* 5. Jendela Chat (Sekarang bisa di-scroll) */
 .chat-window {
-  flex-grow: 1;
-  padding: 0 0.5rem;
-  overflow-y: auto;
+  flex-grow: 1; /* Ambil sisa ruang vertikal */
+  /* Padding horizontal lebih besar, vertikal untuk jarak */
+  padding: 2rem; 
+  overflow-y: auto; /* Ini adalah area scroll utama */
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-/* 5. Bubble Generik (Dasar) */
+/* 6. Bubble Chat (Tidak ada perubahan signifikan) */
 .chat-bubble {
   padding: 10px 14px;
   border-radius: 18px;
-  max-width: 70%;
+  max-width: 80%; /* Bisa sedikit lebih lebar */
   word-wrap: break-word;
 }
 
-/* 6. Bubble Pengguna (Tetap Biru) */
 .chat-bubble.user {
   background-color: #007bff;
   color: white;
@@ -85,8 +78,6 @@ body {
   margin: 0;
 }
 
-
-/* 7. Kontainer Respons Model (Bukan Bubble) */
 .chat-bubble.model {
   background-color: #ffffff;
   color: #333;
@@ -96,44 +87,7 @@ body {
   border-radius: 0;
 }
 
-
-/* --- (POIN 1 & 2) INDIKATOR LOADING BARU --- */
-.loading-indicator {
-  display: flex;
-  align-items: center;
-  padding: 10px 0;
-}
-
-.loading-indicator span {
-  height: 10px;
-  width: 10px;
-  background-color: #adadad;
-  border-radius: 50%;
-  margin: 0 3px;
-  /* Terapkan animasi */
-  animation: bounce 1.4s infinite ease-in-out both;
-}
-
-/* Tunda animasi untuk titik kedua dan ketiga */
-.loading-indicator span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.loading-indicator span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-/* Definisikan animasi 'bounce' */
-@keyframes bounce {
-  0%, 80%, 100% {
-    transform: scale(0);
-  } 40% {
-    transform: scale(1.0);
-  }
-}
-
-
-/* 8. STYLING UNTUK KONTEN MARKDOWN */
+/* 7. Styling Markdown (Tidak ada perubahan) */
 .chat-bubble.model p {
   font-size: 1rem;
   line-height: 1.6;
@@ -160,16 +114,17 @@ body {
 .chat-bubble.model strong { font-weight: bold; }
 .chat-bubble.model em { font-style: italic; }
 
-
-/* 9. Formulir Input */
+/* 8. Formulir Input (Di dalam Kolom Kanan) */
 .chat-form {
   display: flex;
-  padding: 2rem 0.5rem;
-  border-top: none;
-  position: sticky;
+  padding: 1.5rem 2rem; /* Samakan padding dengan chat-window */
+  border-top: 1px solid #f0f0f0; /* Garis batas halus */
+  position: relative; /* Hapus 'sticky' */
   bottom: 0;
   background-color: #ffffff;
+  flex-shrink: 0; /* Jangan menyusut */
 }
+
 .chat-form input {
   flex-grow: 1;
   border: 1px solid #ccc;
@@ -182,6 +137,7 @@ body {
   border-color: #007bff;
   box-shadow: 0 0 5px rgba(0,123,255,0.3);
 }
+
 .chat-form button {
   background-color: #007bff;
   color: white;
@@ -197,43 +153,28 @@ body {
   cursor: not-allowed;
 }
 
-/* --- (POIN 1) STYLE LOADING BARU --- */
-
-/* Kontainer untuk menempatkan loading di atas form */
+/* 9. Indikator Loading (Tidak ada perubahan) */
 .loading-indicator-container {
   display: flex;
-  justify-content: center; /* Pusatkan secara horizontal */
+  justify-content: center;
   padding: 1rem;
 }
-
-/* Animasi 'pulsing' yang lebih modern */
 .loading-indicator {
-  width: 60px; /* Lebar total */
+  width: 60px;
   display: flex;
   justify-content: space-evenly;
   align-items: center;
 }
-
 .loading-indicator span {
   height: 10px;
   width: 10px;
-  background-color: #007bff; /* Warna biru yang sama dengan tombol */
+  background-color: #007bff;
   border-radius: 50%;
-  
-  /* Animasi baru: 'pulse' */
   animation: pulse 1.2s infinite ease-in-out;
 }
-
-/* Tunda animasi untuk setiap titik */
-.loading-indicator span:nth-child(1) {
-  animation-delay: 0s;
-}
-.loading-indicator span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.loading-indicator span:nth-child(3) {
-  animation-delay: 0.4s;
-}
+.loading-indicator span:nth-child(1) { animation-delay: 0s; }
+.loading-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.loading-indicator span:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes pulse {
   0%, 100% {
