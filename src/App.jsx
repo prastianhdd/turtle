@@ -33,7 +33,7 @@ const createNewChat = () => ({
   id: `chat-${Date.now()}`,
   title: 'Percakapan Baru',
   messages: [],
-  mode: 'research' // Default ke mode riset
+  mode: 'research'
 });
 
 function App() {
@@ -41,13 +41,9 @@ function App() {
     const savedChats = localStorage.getItem('geminiMultiChat');
     if (savedChats) {
       const parsedChats = JSON.parse(savedChats);
-      // --- (UPGRADE 4) Migrasi data lama. Tambahkan 'mode' jika tidak ada ---
-      return parsedChats.map(chat => ({
-        ...chat,
-        mode: chat.mode || 'research' // Default chat lama ke 'research'
-      }));
+      return parsedChats.map(chat => ({ ...chat, mode: chat.mode || 'research' }));
     }
-    return [createNewChat()]; // Mulai dengan satu chat riset baru
+    return [createNewChat()];
   });
 
   const [activeChatId, setActiveChatId] = useState(() => {
@@ -103,7 +99,6 @@ function App() {
 
   const handleDeleteChat = (chatId) => {
     const filteredChats = allChats.filter(chat => chat.id !== chatId);
-    
     if (filteredChats.length === 0) {
       const newChat = createNewChat();
       setAllChats([newChat]);
@@ -122,9 +117,7 @@ function App() {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  // --- (UPGRADE 4) Fungsi Baru untuk mengubah mode ---
   const handleModeChange = (newMode) => {
-    // Hanya izinkan perubahan jika chat masih baru (belum ada pesan)
     if (activeChat && activeChat.messages.length === 0) {
       setAllChats(currentChats =>
         currentChats.map(chat =>
@@ -134,26 +127,18 @@ function App() {
     }
   };
 
-
-  // --- (UPGRADE 4) handleSubmit sekarang Cerdas ---
+  // --- (UPGRADE 5.A) handleSubmit MEMANGGIL API LOKAL ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!prompt || loading || !activeChat) return;
 
     setLoading(true);
 
-    // Tentukan prompt lengkap berdasarkan mode chat
     let fullPrompt;
     if (activeChat.mode === 'research') {
       const PROMPT_TOPIK = `Topic: ${prompt}\n\n`;
-      fullPrompt = 
-        PROMPT_ROLE + 
-        PROMPT_TASK + 
-        PROMPT_TOPIK + 
-        PROMPT_SINTESIS + 
-        PROMPT_CONSTRAINTS;
+      fullPrompt = PROMPT_ROLE + PROMPT_TASK + PROMPT_TOPIK + PROMPT_SINTESIS + PROMPT_CONSTRAINTS;
     } else {
-      // Mode 'normal', kirim prompt apa adanya
       fullPrompt = prompt;
     }
 
@@ -166,7 +151,6 @@ function App() {
         if (chat.id === activeChatId) {
           return {
             ...chat,
-            // Judul di-set saat pesan pertama, mode sudah di-set sebelumnya
             title: isFirstMessage ? prompt.substring(0, 40) : chat.title, 
             messages: [...chat.messages, userMessage, initialModelMessage]
           };
@@ -177,16 +161,32 @@ function App() {
     setPrompt('');
 
     try {
-      // Logika streaming tetap sama, API akan menangani prompt apa adanya
-      const result = await model.generateContentStream(fullPrompt);
-      const stream = result.stream; 
+      // 1. Panggil API backend kita sendiri
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fullPrompt }),
+      });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // 2. Baca stream dari API backend kita
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
       let accumulatedText = "";
-      
-      for await (const chunk of stream) {
-        const chunkText = chunk.text();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunkText = decoder.decode(value);
         accumulatedText += chunkText;
         
+        // 3. Update UI seperti sebelumnya
         setAllChats(currentChats =>
           currentChats.map(chat => {
             if (chat.id === activeChatId) {
@@ -200,7 +200,7 @@ function App() {
       }
 
     } catch (error) {
-      console.error("Error generating content:", error);
+      console.error("Error fetching stream:", error);
       const specificErrorMessage = `[DEBUG] Maaf, terjadi kesalahan: ${error.message}`;
       const errorMessage = { role: 'model', parts: [{ text: specificErrorMessage }] };
       
@@ -219,16 +219,13 @@ function App() {
     }
   };
 
-  // Tentukan apakah mode selector harus dinonaktifkan
   const isChatStarted = activeChat && activeChat.messages.length > 0;
 
   return (
     <div className={`app-layout ${isSidebarOpen ? 'sidebar-open' : ''}`}>
-      
       {isSidebarOpen && (
         <div className="mobile-overlay" onClick={() => setIsSidebarOpen(false)}></div>
       )}
-
       <Sidebar 
         allChats={allChats}
         activeChatId={activeChatId}
@@ -236,7 +233,6 @@ function App() {
         onNewChat={handleNewChat}
         onDeleteChat={handleDeleteChat}
       />
-
       <div className="main-chat-area">
         <header className="app-header">
           <button className="menu-btn" onClick={() => setIsSidebarOpen(true)}>
@@ -246,7 +242,6 @@ function App() {
           </button>
           <h1>{activeChat ? activeChat.title : 'Asisten Riset'}</h1>
         </header>
-        
         <div className="chat-window" ref={chatWindowRef} key={activeChatId}>
           {activeChat && activeChat.messages.map((msg, index) => (
             <div key={index} className={`chat-bubble ${msg.role}`}>
@@ -268,7 +263,6 @@ function App() {
               )}
             </div>
           ))}
-          
           {loading && (
             <div className="loading-indicator-container">
               <div className="loading-indicator">
@@ -279,8 +273,6 @@ function App() {
             </div>
           )}
         </div>
-
-        {/* --- (UPGRADE 4) UI Mode Selector --- */}
         <div className="mode-selector-container">
           <div className="mode-selector">
             <button 
@@ -304,16 +296,14 @@ function App() {
             </span>
           )}
         </div>
-
         <form className="chat-form" onSubmit={handleSubmit}>
           <input
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            // --- (UPGRADE 4) Placeholder Dinamis ---
             placeholder={
               activeChat?.mode === 'research' 
-                ? "Masukkan Topik Penelitian (misal: Blockchain)"
+                ? "Masukkan Topik Penelitian (misal: Blockchain dalam 300 kata)"
                 : "Ketik pesan (misal: Halo, apa kabar?)"
             }
             disabled={loading}
