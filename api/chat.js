@@ -84,6 +84,7 @@ const normalModel = genAI.getGenerativeModel({
 });
 
 // --- HANDLER API UTAMA ---
+// --- HANDLER API UTAMA ---
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
@@ -117,7 +118,7 @@ export default async function handler(req, res) {
       res.end();
 
     } else {
-      // --- MODE NORMAL (Dengan Perbaikan) ---
+      // --- MODE NORMAL (Dengan Perbaikan Error Handling) ---
       const geminiHistory = history.map(msg => ({
         role: msg.role,
         parts: msg.parts,
@@ -127,14 +128,9 @@ export default async function handler(req, res) {
       let stream = (await chat.sendMessageStream(currentUserPrompt)).stream;
 
       for await (const chunk of stream) {
-        // === INI ADALAH PERBAIKANNYA ===
-        // Ganti dari functionCall() (tunggal) ke functionCalls() (array)
         const functionCalls = chunk.functionCalls();
-        // ================================
 
         if (functionCalls && functionCalls.length > 0) {
-          // Kita hanya akan memproses panggilan pertama,
-          // karena kita hanya punya satu alat (google_search)
           const firstCall = functionCalls[0]; 
           
           if (firstCall.name === "google_search") {
@@ -143,24 +139,38 @@ export default async function handler(req, res) {
             // Eksekusi pencarian
             const searchResult = await executeGoogleSearch(query);
             
+            // --- INI PERBAIKANNYA ---
+            // Cek apakah hasil search mengandung error
+            let searchData;
+            try { searchData = JSON.parse(searchResult); } catch(e) { /* abaikan */ }
+            
+            if (searchData && searchData.error) {
+              // JIKA GAGAL, kirim pesan error ke pengguna dan HENTIKAN
+              console.error("Google Search Gagal:", searchData.details);
+              res.write(`[DEBUG] Gagal memanggil Google Search. 
+Kesalahan: ${searchData.details}
+
+(Pastikan GOOGLE_SEARCH_API_KEY dan GOOGLE_SEARCH_CX_ID benar, dan 'Custom Search API' sudah di-Enable di Google Cloud).`);
+              break; // Hentikan loop
+            }
+            // --- AKHIR PERBAIKAN ---
+
             // Kirim hasil pencarian kembali ke AI
             stream = (await chat.sendMessageStream([
               {
                 functionResponse: {
                   name: "google_search",
                   response: {
-                    content: searchResult,
+                    content: searchResult, // Kirim hasil yang sukses
                   },
                 },
               },
             ])).stream;
             
-            // Lanjutkan loop untuk mendapatkan jawaban akhir dari AI
             continue;
           }
         }
         
-        // Jika bukan tool-call, kirim teks ke pengguna
         if (chunk.text()) {
           res.write(chunk.text());
         }
@@ -169,7 +179,18 @@ export default async function handler(req, res) {
     }
 
   } catch (error) {
+    // --- PERBAIKAN ERROR HANDLING UTAMA ---
     console.error("Error di serverless function:", error.message);
-    res.status(500).json({ error: 'Internal Server Error', details: error.message });
+    
+    // Cek apakah kita sudah mulai mengirim data
+    if (res.headersSent) {
+      // Jika ya, kita tidak bisa kirim '500'.
+      // Kita hanya bisa menulis error ke stream dan menutupnya.
+      res.write(`\n\n[DEBUG] Terjadi kesalahan fatal: ${error.message}`);
+      res.end();
+    } else {
+      // Jika belum, kita aman mengirim status 500
+      res.status(500).json({ error: 'Internal Server Error', details: error.message });
+    }
   }
 }
