@@ -1,4 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+// --- (UPGRADE) Impor modul safety ---
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 // --- AMBIL SEMUA API KEY ---
 const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -14,29 +15,30 @@ if (!searchApiKey || !searchCxId) {
 
 const genAI = new GoogleGenerativeAI(geminiApiKey);
 
-// --- (UPGRADE 5.B) DEFINISIKAN PROMPT RISET DI BACKEND ---
+// --- (PROMPT RISET ANDA DI SINI, tidak perlu diubah) ---
 const PROMPT_ROLE = `Role: Peneliti Akademik / Analis Riset\n\n`;
 const PROMPT_TASK = `Task:
-- Melakukan penelitian literatur (studi pusaka) yang mendalam dan kritis mengenai {Topik}.
-- Mengidentifikasi, menganalisis, dan mensintesis informasi dari berbagai sumber kredibel.
-- Menghasilkan rangkuman sintetis yang koheren, komprehensif, dan objektif berdasarkan temuan penelitian.\n\n`;
+Melakukan penelitian literatur (studi pusaka) yang mendalam dan kritis mengenai {Topik}.
+Mengidentifikasi, menganalisis, dan mensintesis informasi dari berbagai sumber kredibel.
+Menghasilkan rangkuman sintetis yang koheren, komprehensif, dan objektif berdasarkan temuan penelitian.\n\n`;
 const PROMPT_SINTESIS = `Sintesis & Penulisan :
-- Parafrasa Mendalam (Wajib): Seluruh rangkuman harus ditulis ulang menggunakan bahasa dan struktur kalimat sendiri. Ini bukan sekadar mengganti sinonim (spin text). WAJIB mengubah struktur kalimat (misal: dari aktif ke pasif, memecah 1 kalimat kompleks menjadi 2 kalimat, atau menggabungkan 2 kalimat singkat) dan urutan penyampaian poin, selama alur logika tetap terjaga. DILARANG keras melakukan salin-tempel atau model "tambal sulam".
-- Objektivitas: Rangkuman harus secara akurat dan netral mewakili ide, argumen, dan data dari penulis asli. Jangan memasukkan opini, interpretasi, atau kritik pribadi.
-- Bahasa Baku: Gunakan bahasa Indonesia yang formal, baku (sesuai EYD dan KBBI), jelas, dan efektif.
-- Fokus pada Inti: Identifikasi dan sampaikan tesis utama (ide pokok), argumen pendukung, metodologi (jika relevan), dan kesimpulan dari sumber.
-- Gaya Penulisan Lanjutan (Anti-Deteksi): 
+Parafrasa Mendalam (Wajib): Seluruh rangkuman harus ditulis ulang menggunakan bahasa dan struktur kalimat sendiri. Ini bukan sekadar mengganti sinonim (spin text). WAJIB mengubah struktur kalimat (misal: dari aktif ke pasif, memecah 1 kalimat kompleks menjadi 2 kalimat, atau menggabungkan 2 kalimat singkat) dan urutan penyampaian poin, selama alur logika tetap terjaga. DILARANG keras melakukan salin-tempel atau model "tambal sulam".
+Objektivitas: Rangkuman harus secara akurat dan netral mewakili ide, argumen, dan data dari penulis asli. Jangan memasukkan opini, interpretasi, atau kritik pribadi.
+Bahasa Baku: Gunakan bahasa Indonesia yang formal, baku (sesuai EYD dan KBBI), jelas, dan efektif.
+Fokus pada Inti: Identifikasi dan sampaikan tesis utama (ide pokok), argumen pendukung, metodologi (jika relevan), dan kesimpulan dari sumber.
+5. Gaya Penulisan Lanjutan (Anti-Deteksi): 
    * Variasi Struktur Kalimat (Burstiness): Ini sangat penting. Hindari keseragaman panjang kalimat. Gunakan kombinasi kalimat pendek (misalnya 5-10 kata) untuk penegasan, diikuti oleh kalimat yang lebih panjang dan kompleks (25-35 kata) yang menggunakan anak kalimat atau konjungsi. Ritme tulisan harus terasa dinamis, bukan monoton.
    * Variasi Pilihan Kata (Perplexity): Hindari penggunaan kata atau frasa yang paling umum secara berulang. Gunakan sinonim yang tepat namun bervariasi. Jika sebuah konsep dapat dijelaskan dengan beberapa cara, jangan selalu memilih cara yang paling standar atau "paling aman".
    * Alur Logika Natural: Meskipun harus formal dan objektif, alur tulisan harus terasa seperti seorang analis yang memandu pembaca, bukan seperti ensiklopedia yang kaku. Gunakan kata transisi (misalnya "namun", "selain itu", "akibatnya") secara wajar, tetapi jangan berlebihan. Biarkan beberapa paragraf mengalir secara logis tanpa kata transisi eksplisit jika hubungannya sudah jelas.\n\n`;
 const PROMPT_CONSTRAINTS = `Required Constraints:
-- Kredibilitas Sumber: Referensi utama HARUS berasal dari sumber ilmiah atau akademik (Jurnal, Buku Akademik, Laporan Penelitian Resmi, Prosiding Konferensi).
-- Eksklusi Sumber: Dilarang menggunakan blog pribadi, forum, media sosial, atau Wikipedia sebagai sumber sitasi.
-- Relevansi Waktu: Prioritaskan sumber 5-10 tahun terakhir, kecuali topik bersifat historis.
-- Daftar Pustaka: Wajib menyertakan Daftar Pustaka lengkap untuk setiap klaim yang diparafrasa.
+Kredibilitas Sumber: Referensi utama HARUS berasal dari sumber ilmiah atau akademik (Jurnal, Buku Akademik, Laporan Penelitian Resmi, Prosiding Konferensi).
+Eksklusi Sumber: Dilarang menggunakan blog pribadi, forum, media sosial, atau Wikipedia sebagai sumber sitasi.
+Relevansi Waktu: Prioritaskan sumber 5-10 tahun terakhir, kecuali topik bersifat historis.
+Daftar Pustaka: Wajib menyertakan Daftar Pustaka lengkap untuk setiap klaim yang diparafrasa.
 `;
+// --------------------------------------------------------
 
-// --- (UPGRADE 5.B) DEFINISIKAN GOOGLE SEARCH TOOL ---
+// --- (GOOGLE SEARCH TOOL, tidak perlu diubah) ---
 const googleSearchTool = {
   functionDeclarations: [
     {
@@ -56,20 +58,27 @@ const googleSearchTool = {
   ],
 };
 
-// --- (UPGRADE 5.B) FUNGSI UNTUK EKSEKUSI SEARCH ---
 async function executeGoogleSearch(query) {
+  if (!searchApiKey || !searchCxId) {
+    return JSON.stringify({ error: "Failed to fetch search results.", details: "Variabel GOOGLE_SEARCH_API_KEY atau GOOGLE_SEARCH_CX_ID tidak diatur di server." });
+  }
+  
   try {
     const url = `https://www.googleapis.com/customsearch/v1?key=${searchApiKey}&cx=${searchCxId}&q=${encodeURIComponent(query)}&num=3`;
     const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Google Search API error! status: ${response.status}`);
-    }
     const data = await response.json();
+
+    if (!response.ok) {
+      const errorDetails = data.error?.message || `HTTP error! status: ${response.status}`;
+      return JSON.stringify({ error: "Failed to fetch search results.", details: errorDetails });
+    }
+    
     const results = data.items?.map(item => ({
       title: item.title,
       snippet: item.snippet,
       link: item.link,
     })) || [];
+    
     return JSON.stringify(results);
   } catch (error) {
     console.error("Error executing Google Search:", error.message);
@@ -77,14 +86,41 @@ async function executeGoogleSearch(query) {
   }
 }
 
-const researchModel = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
-const normalModel = genAI.getGenerativeModel({ 
-  model: "gemini-2.5-flash",
-  tools: googleSearchTool
+// --- (UPGRADE) Definisikan Safety Settings untuk mematikan filter ---
+const safetySettings = [
+  {
+    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+];
+// --------------------------------------------------------
+
+// --- (UPGRADE) Terapkan Safety Settings ke Model ---
+const researchModel = genAI.getGenerativeModel({ 
+  model: "gemini-1.5-flash",
+  safetySettings: safetySettings // <--- Tambahkan ini
 });
 
-// --- HANDLER API UTAMA ---
-// --- HANDLER API UTAMA ---
+const normalModel = genAI.getGenerativeModel({ 
+  model: "gemini-1.5-flash",
+  tools: googleSearchTool,
+  safetySettings: safetySettings // <--- Tambahkan ini
+});
+// --------------------------------------------------------
+
+// --- HANDLER API UTAMA (Tidak berubah dari langkah terakhir) ---
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
@@ -107,7 +143,6 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-cache');
 
     if (mode === 'research') {
-      // --- MODE RISET (Tidak Berubah) ---
       const PROMPT_TOPIK = `Topic: ${currentUserPrompt}\n\n`;
       const fullPrompt = PROMPT_ROLE + PROMPT_TASK + PROMPT_TOPIK + PROMPT_SINTESIS + PROMPT_CONSTRAINTS;
       
@@ -118,7 +153,6 @@ export default async function handler(req, res) {
       res.end();
 
     } else {
-      // --- MODE NORMAL (Dengan Perbaikan Error Handling) ---
       const geminiHistory = history.map(msg => ({
         role: msg.role,
         parts: msg.parts,
@@ -135,33 +169,26 @@ export default async function handler(req, res) {
           
           if (firstCall.name === "google_search") {
             const query = firstCall.args.query;
-            
-            // Eksekusi pencarian
             const searchResult = await executeGoogleSearch(query);
             
-            // --- INI PERBAIKANNYA ---
-            // Cek apakah hasil search mengandung error
             let searchData;
             try { searchData = JSON.parse(searchResult); } catch(e) { /* abaikan */ }
             
             if (searchData && searchData.error) {
-              // JIKA GAGAL, kirim pesan error ke pengguna dan HENTIKAN
               console.error("Google Search Gagal:", searchData.details);
               res.write(`[DEBUG] Gagal memanggil Google Search. 
 Kesalahan: ${searchData.details}
 
 (Pastikan GOOGLE_SEARCH_API_KEY dan GOOGLE_SEARCH_CX_ID benar, dan 'Custom Search API' sudah di-Enable di Google Cloud).`);
-              break; // Hentikan loop
+              break;
             }
-            // --- AKHIR PERBAIKAN ---
 
-            // Kirim hasil pencarian kembali ke AI
             stream = (await chat.sendMessageStream([
               {
                 functionResponse: {
                   name: "google_search",
                   response: {
-                    content: searchResult, // Kirim hasil yang sukses
+                    content: searchResult,
                   },
                 },
               },
@@ -179,17 +206,12 @@ Kesalahan: ${searchData.details}
     }
 
   } catch (error) {
-    // --- PERBAIKAN ERROR HANDLING UTAMA ---
     console.error("Error di serverless function:", error.message);
     
-    // Cek apakah kita sudah mulai mengirim data
     if (res.headersSent) {
-      // Jika ya, kita tidak bisa kirim '500'.
-      // Kita hanya bisa menulis error ke stream dan menutupnya.
       res.write(`\n\n[DEBUG] Terjadi kesalahan fatal: ${error.message}`);
       res.end();
     } else {
-      // Jika belum, kita aman mengirim status 500
       res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
   }
