@@ -258,7 +258,7 @@ function App() {
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Masukkan Topik Penelitian (misal: Blockchain)"
+            placeholder="Masukkan Topik Penelitian (misal: materi blockchain dalam maksimal 300 kata)"
             disabled={loading}
           />
           <button type="submit" disabled={loading}>
