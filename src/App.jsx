@@ -1,30 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+// import model from './gemini.js'; // Kita sudah hapus ini, bagus
 import Sidebar from './Sidebar.jsx';
 import './App.css'; 
 
-// --- (Semua konstanta PROMPT Anda tetap sama) ---
-const PROMPT_ROLE = `Role: Peneliti Akademik / Analis Riset\n\n`;
-const PROMPT_TASK = `Task:
-- Melakukan penelitian literatur (studi pusaka) yang mendalam dan kritis mengenai {Topik}.
-- Mengidentifikasi, menganalisis, dan mensintesis informasi dari berbagai sumber kredibel.
-- Menghasilkan rangkuman sintetis yang koheren, komprehensif, dan objektif berdasarkan temuan penelitian.\n\n`;
-const PROMPT_SINTESIS = `Sintesis & Penulisan :
-- Parafrasa Mendalam (Wajib): Seluruh rangkuman harus ditulis ulang menggunakan bahasa dan struktur kalimat sendiri. Ini bukan sekadar mengganti sinonim (spin text). WAJIB mengubah struktur kalimat (misal: dari aktif ke pasif, memecah 1 kalimat kompleks menjadi 2 kalimat, atau menggabungkan 2 kalimat singkat) dan urutan penyampaian poin, selama alur logika tetap terjaga. DILARANG keras melakukan salin-tempel atau model "tambal sulam".
-- Objektivitas: Rangkuman harus secara akurat dan netral mewakili ide, argumen, dan data dari penulis asli. Jangan memasukkan opini, interpretasi, atau kritik pribadi.
-- Bahasa Baku: Gunakan bahasa Indonesia yang formal, baku (sesuai EYD dan KBBI), jelas, dan efektif.
-- Fokus pada Inti: Identifikasi dan sampaikan tesis utama (ide pokok), argumen pendukung, metodologi (jika relevan), dan kesimpulan dari sumber.
-- Gaya Penulisan Lanjutan (Anti-Deteksi): 
-   * Variasi Struktur Kalimat (Burstiness): Ini sangat penting. Hindari keseragaman panjang kalimat. Gunakan kombinasi kalimat pendek (misalnya 5-10 kata) untuk penegasan, diikuti oleh kalimat yang lebih panjang dan kompleks (25-35 kata) yang menggunakan anak kalimat atau konjungsi. Ritme tulisan harus terasa dinamis, bukan monoton.
-   * Variasi Pilihan Kata (Perplexity): Hindari penggunaan kata atau frasa yang paling umum secara berulang. Gunakan sinonim yang tepat namun bervariasi. Jika sebuah konsep dapat dijelaskan dengan beberapa cara, jangan selalu memilih cara yang paling standar atau "paling aman".
-   * Alur Logika Natural: Meskipun harus formal dan objektif, alur tulisan harus terasa seperti seorang analis yang memandu pembaca, bukan seperti ensiklopedia yang kaku. Gunakan kata transisi (misalnya "namun", "selain itu", "akibatnya") secara wajar, tetapi jangan berlebihan. Biarkan beberapa paragraf mengalir secara logis tanpa kata transisi eksplisit jika hubungannya sudah jelas.\n\n`;
-const PROMPT_CONSTRAINTS = `Required Constraints:
-- Kredibilitas Sumber: Referensi utama HARUS berasal dari sumber ilmiah atau akademik (Jurnal, Buku Akademik, Laporan Penelitian Resmi, Prosiding Konferensi).
-- Eksklusi Sumber: Dilarang menggunakan blog pribadi, forum, media sosial, atau Wikipedia sebagai sumber sitasi.
-- Relevansi Waktu: Prioritaskan sumber terbaru dan maksimal 5 tahun terakhir, kecuali topik bersifat historis.
-- Daftar Pustaka: Wajib menyertakan Daftar Pustaka lengkap untuk setiap klaim yang diparafrasa.
-`;
-// ------------------------------------------
+// --- KITA HAPUS SEMUA PROMPT DARI FRONTEND ---
+// Ini semua akan pindah ke backend.
 
 const createNewChat = () => ({
   id: `chat-${Date.now()}`,
@@ -124,24 +105,19 @@ function App() {
     }
   };
 
-  // --- (UPGRADE 5.A) handleSubmit MEMANGGIL API LOKAL ---
+  // --- (UPGRADE 5.B) handleSubmit MENGIRIM PESAN & MODE ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!prompt || loading || !activeChat) return;
 
     setLoading(true);
 
-    let fullPrompt;
-    if (activeChat.mode === 'research') {
-      const PROMPT_TOPIK = `Topic: ${prompt}\n\n`;
-      fullPrompt = PROMPT_ROLE + PROMPT_TASK + PROMPT_TOPIK + PROMPT_SINTESIS + PROMPT_CONSTRAINTS;
-    } else {
-      fullPrompt = prompt;
-    }
-
     const userMessage = { role: 'user', parts: [{ text: prompt }] };
     const initialModelMessage = { role: 'model', parts: [{ text: "" }] };
     const isFirstMessage = activeChat.messages.length === 0;
+
+    // Ambil riwayat pesan SEBELUM menambahkan pesan baru
+    const chatHistory = activeChat.messages;
     
     setAllChats(currentChats => 
       currentChats.map(chat => {
@@ -155,20 +131,27 @@ function App() {
         return chat;
       })
     );
+    const currentPrompt = prompt; // Simpan prompt saat ini
     setPrompt('');
 
     try {
-      // 1. Panggil API backend kita sendiri
+      // 1. Panggil API backend kita dengan payload baru
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ fullPrompt }),
+        // KIRIM PESAN BARU, RIWAYAT LAMA, dan MODE
+        body: JSON.stringify({ 
+          currentUserPrompt: currentPrompt,
+          history: chatHistory,
+          mode: activeChat.mode 
+        }),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
       // 2. Baca stream dari API backend kita
@@ -300,8 +283,8 @@ function App() {
             onChange={(e) => setPrompt(e.target.value)}
             placeholder={
               activeChat?.mode === 'research' 
-                ? "Masukkan Topik Penelitian (misal: Blockchain dalam 300 Kata)"
-                : "Ketik pesan (misal: Halo, apa kabar?)"
+                ? "Masukkan Topik Penelitian (misal: Blockchain)"
+                : "Tanya apa saja (misal: tahun berapa sekarang?)"
             }
             disabled={loading}
           />

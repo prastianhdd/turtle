@@ -1,59 +1,178 @@
-// Gunakan sintaks ES Module (import)
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// 1. Ambil API Key dari Environment Variables
-const apiKey = process.env.GEMINI_API_KEY;
+// --- AMBIL SEMUA API KEY ---
+const geminiApiKey = process.env.GEMINI_API_KEY;
+const searchApiKey = process.env.GOOGLE_SEARCH_API_KEY;
+const searchCxId = process.env.GOOGLE_SEARCH_CX_ID;
 
-if (!apiKey) {
+if (!geminiApiKey) {
   console.error("FATAL: GEMINI_API_KEY environment variable not set.");
 }
-
-// Inisialisasi di luar handler
-let genAI;
-if (apiKey) {
-  genAI = new GoogleGenerativeAI(apiKey);
+if (!searchApiKey || !searchCxId) {
+  console.warn("Peringatan: Google Search API Keys (SEARCH_API_KEY, SEARCH_CX_ID) tidak diatur. Mode 'Chat Normal' tidak akan bisa mencari di internet.");
 }
 
-// 2. Ini adalah handler API Vercel menggunakan export default
+const genAI = new GoogleGenerativeAI(geminiApiKey);
+
+// --- (UPGRADE 5.B) DEFINISIKAN PROMPT RISET DI BACKEND ---
+const PROMPT_ROLE = `Role: Peneliti Akademik / Analis Riset\n\n`;
+const PROMPT_TASK = `Task:
+- Melakukan penelitian literatur (studi pusaka) yang mendalam dan kritis mengenai {Topik}.
+- Mengidentifikasi, menganalisis, dan mensintesis informasi dari berbagai sumber kredibel.
+- Menghasilkan rangkuman sintetis yang koheren, komprehensif, dan objektif berdasarkan temuan penelitian.\n\n`;
+const PROMPT_SINTESIS = `Sintesis & Penulisan :
+- Parafrasa Mendalam (Wajib): Seluruh rangkuman harus ditulis ulang menggunakan bahasa dan struktur kalimat sendiri. Ini bukan sekadar mengganti sinonim (spin text). WAJIB mengubah struktur kalimat (misal: dari aktif ke pasif, memecah 1 kalimat kompleks menjadi 2 kalimat, atau menggabungkan 2 kalimat singkat) dan urutan penyampaian poin, selama alur logika tetap terjaga. DILARANG keras melakukan salin-tempel atau model "tambal sulam".
+- Objektivitas: Rangkuman harus secara akurat dan netral mewakili ide, argumen, dan data dari penulis asli. Jangan memasukkan opini, interpretasi, atau kritik pribadi.
+- Bahasa Baku: Gunakan bahasa Indonesia yang formal, baku (sesuai EYD dan KBBI), jelas, dan efektif.
+- Fokus pada Inti: Identifikasi dan sampaikan tesis utama (ide pokok), argumen pendukung, metodologi (jika relevan), dan kesimpulan dari sumber.
+- Gaya Penulisan Lanjutan (Anti-Deteksi): 
+   * Variasi Struktur Kalimat (Burstiness): Ini sangat penting. Hindari keseragaman panjang kalimat. Gunakan kombinasi kalimat pendek (misalnya 5-10 kata) untuk penegasan, diikuti oleh kalimat yang lebih panjang dan kompleks (25-35 kata) yang menggunakan anak kalimat atau konjungsi. Ritme tulisan harus terasa dinamis, bukan monoton.
+   * Variasi Pilihan Kata (Perplexity): Hindari penggunaan kata atau frasa yang paling umum secara berulang. Gunakan sinonim yang tepat namun bervariasi. Jika sebuah konsep dapat dijelaskan dengan beberapa cara, jangan selalu memilih cara yang paling standar atau "paling aman".
+   * Alur Logika Natural: Meskipun harus formal dan objektif, alur tulisan harus terasa seperti seorang analis yang memandu pembaca, bukan seperti ensiklopedia yang kaku. Gunakan kata transisi (misalnya "namun", "selain itu", "akibatnya") secara wajar, tetapi jangan berlebihan. Biarkan beberapa paragraf mengalir secara logis tanpa kata transisi eksplisit jika hubungannya sudah jelas.\n\n`;
+const PROMPT_CONSTRAINTS = `Required Constraints:
+- Kredibilitas Sumber: Referensi utama HARUS berasal dari sumber ilmiah atau akademik (Jurnal, Buku Akademik, Laporan Penelitian Resmi, Prosiding Konferensi).
+- Eksklusi Sumber: Dilarang menggunakan blog pribadi, forum, media sosial, atau Wikipedia sebagai sumber sitasi.
+- Relevansi Waktu: Prioritaskan sumber 5-10 tahun terakhir, kecuali topik bersifat historis.
+- Daftar Pustaka: Wajib menyertakan Daftar Pustaka lengkap untuk setiap klaim yang diparafrasa.
+`;
+
+// --- (UPGRADE 5.B) DEFINISIKAN GOOGLE SEARCH TOOL ---
+const googleSearchTool = {
+  functionDeclarations: [
+    {
+      name: "google_search",
+      description: "Alat untuk mencari informasi real-time di Google. Gunakan ini untuk pertanyaan tentang peristiwa terkini, cuaca, fakta (seperti 'tahun berapa sekarang?'), atau informasi apa pun yang mungkin berada di luar data pelatihan.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          query: {
+            type: "STRING",
+            description: "Query pencarian yang akan dikirim ke Google.",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  ],
+};
+
+// --- (UPGRADE 5.B) FUNGSI UNTUK EKSEKUSI SEARCH ---
+async function executeGoogleSearch(query) {
+  try {
+    const url = `https://www.googleapis.com/customsearch/v1?key=${searchApiKey}&cx=${searchCxId}&q=${encodeURIComponent(query)}&num=3`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Google Search API error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    
+    // Format hasil agar ringkas untuk AI
+    const results = data.items?.map(item => ({
+      title: item.title,
+      snippet: item.snippet,
+      link: item.link,
+    })) || [];
+    
+    return JSON.stringify(results);
+  } catch (error) {
+    console.error("Error executing Google Search:", error.message);
+    return JSON.stringify({ error: "Failed to fetch search results.", details: error.message });
+  }
+}
+
+// --- (UPGRADE 5.B) MODEL UNTUK SETIAP MODE ---
+const researchModel = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
+const normalModel = genAI.getGenerativeModel({ 
+  model: "gemini-2.5-flash",
+  tools: googleSearchTool
+});
+
+// --- HANDLER API UTAMA ---
 export default async function handler(req, res) {
-  // Hanya izinkan metode POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // Cek API Key sekali lagi saat runtime
   if (!genAI) {
-    console.error("API Key is missing or service not initialized.");
     return res.status(500).json({ error: 'Server configuration error: API Key missing.' });
   }
 
   try {
-    const { fullPrompt } = req.body;
+    // Ambil payload baru dari frontend
+    const { currentUserPrompt, history, mode } = req.body;
 
-    if (!fullPrompt) {
-      return res.status(400).json({ error: 'fullPrompt is required' });
+    if (!currentUserPrompt) {
+      return res.status(400).json({ error: 'currentUserPrompt is required' });
     }
 
-    // 3. Logika streaming
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
-    const result = await model.generateContentStream(fullPrompt);
-    const stream = result.stream;
-
-    // 4. Atur header untuk streaming
+    // Atur header streaming
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Transfer-Encoding', 'chunked');
-    // Atur header tambahan untuk Vercel agar tidak timeout
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('Cache-Control', 'no-cache');
 
+    // --- LOGIKA BERDASARKAN MODE ---
 
-    // 5. Kirim stream kembali ke frontend
-    for await (const chunk of stream) {
-      const chunkText = chunk.text();
-      res.write(chunkText); // Kirim setiap chunk
+    if (mode === 'research') {
+      // --- MODE RISET (Sama seperti lama, tapi prompt dibangun di sini) ---
+      const PROMPT_TOPIK = `Topic: ${currentUserPrompt}\n\n`;
+      const fullPrompt = PROMPT_ROLE + PROMPT_TASK + PROMPT_TOPIK + PROMPT_SINTESIS + PROMPT_CONSTRAINTS;
+      
+      const result = await researchModel.generateContentStream(fullPrompt);
+      for await (const chunk of result.stream) {
+        res.write(chunk.text());
+      }
+      res.end();
+
+    } else {
+      // --- MODE NORMAL (Dengan Google Search) ---
+      
+      // Konversi riwayat 'messages' ke format yang dipahami Gemini
+      const geminiHistory = history.map(msg => ({
+        role: msg.role,
+        parts: msg.parts,
+      }));
+
+      const chat = normalModel.startChat({ history: geminiHistory });
+      
+      // Kirim pesan baru
+      let stream = (await chat.sendMessageStream(currentUserPrompt)).stream;
+
+      for await (const chunk of stream) {
+        // Cek apakah AI meminta kita memanggil 'tool'
+        const functionCall = chunk.functionCall();
+
+        if (functionCall) {
+          if (functionCall.name === "google_search") {
+            const query = functionCall.args.query;
+            
+            // Eksekusi pencarian
+            const searchResult = await executeGoogleSearch(query);
+            
+            // Kirim hasil pencarian kembali ke AI
+            stream = (await chat.sendMessageStream([
+              {
+                functionResponse: {
+                  name: "google_search",
+                  response: {
+                    content: searchResult,
+                  },
+                },
+              },
+            ])).stream;
+            
+            // Lanjutkan loop untuk mendapatkan jawaban akhir dari AI
+            continue;
+          }
+        }
+        
+        // Jika bukan tool-call, kirim teks ke pengguna
+        if (chunk.text()) {
+          res.write(chunk.text());
+        }
+      }
+      res.end();
     }
-
-    res.end(); // Akhiri stream
 
   } catch (error) {
     console.error("Error di serverless function:", error.message);
