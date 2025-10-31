@@ -235,3 +235,104 @@ body {
   border-color: #a3d9b8;
   opacity: 1; /* Pastikan terlihat */
 }
+
+/* --- (UPGRADE 3) Style Tombol Menu (Hamburger) --- */
+.menu-btn {
+  display: none; /* Sembunyi di desktop */
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  margin-right: 1rem;
+}
+
+.menu-btn span {
+  display: block;
+  width: 24px;
+  height: 3px;
+  background-color: #333;
+  margin: 5px 0;
+  transition: all 0.3s;
+}
+
+/* --- (UPGRADE 3) Style Overlay Mobile --- */
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  z-index: 998; /* Di bawah sidebar tapi di atas konten */
+}
+
+/* --- (UPGRADE 3) MEDIA QUERY UNTUK MOBILE --- */
+@media (max-width: 768px) {
+  
+  body {
+    /* Izinkan scroll vertikal di mobile jika konten meluap, 
+       tapi chat-window harusnya menangani ini */
+    overflow: auto; 
+  }
+
+  .app-layout {
+    /* Hentikan flexbox, biarkan main-chat-area mengambil alih */
+    display: block;
+    height: auto;
+    width: 100%;
+  }
+
+  .main-chat-area {
+    width: 100%;
+    height: 100vh; /* Pastikan area chat tetap 100% tinggi layar */
+  }
+  
+  /* Tampilkan tombol menu */
+  .menu-btn {
+    display: block;
+  }
+
+  /* Atur ulang header untuk menampung tombol menu */
+  .app-header {
+    display: flex;
+    align-items: center;
+    padding: 1rem; /* Kurangi padding di mobile */
+  }
+
+  .app-header h1 {
+    font-size: 1.1rem; /* Kecilkan font judul */
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Sembunyikan sidebar secara default */
+  .sidebar {
+    position: fixed; /* Posisikan melayang */
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 999;
+    transform: translateX(-100%); /* Sembunyikan ke kiri */
+    transition: transform 0.3s ease-in-out;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+  }
+
+  /* Tampilkan sidebar saat 'sidebar-open' aktif */
+  .app-layout.sidebar-open .sidebar {
+    transform: translateX(0); /* Tampilkan */
+  }
+
+  /* Tampilkan overlay saat 'sidebar-open' aktif */
+  .app-layout.sidebar-open .mobile-overlay {
+    display: block;
+  }
+
+  /* Sesuaikan form chat dan chat window di mobile */
+  .chat-window {
+    padding: 1rem;
+  }
+  .chat-form {
+    padding: 1rem;
+  }
+}

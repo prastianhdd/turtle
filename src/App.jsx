@@ -4,7 +4,7 @@ import model from './gemini.js';
 import Sidebar from './Sidebar.jsx';
 import './App.css'; 
 
-// --- (Konstanta PROMPT Anda tetap sama) ---
+// --- (Semua konstanta PROMPT Anda tetap sama) ---
 const PROMPT_ROLE = `Role: Peneliti Akademik / Analis Riset\n\n`;
 const PROMPT_TASK = `Task: 
 1. Melakukan penelitian literatur (studi pusaka) yang mendalam dan kritis mengenai topik di bawah ini.
@@ -40,10 +40,7 @@ const createNewChat = () => ({
 function App() {
   const [allChats, setAllChats] = useState(() => {
     const savedChats = localStorage.getItem('geminiMultiChat');
-    if (savedChats) {
-      return JSON.parse(savedChats);
-    }
-    return [createNewChat()];
+    return savedChats ? JSON.parse(savedChats) : [createNewChat()];
   });
 
   const [activeChatId, setActiveChatId] = useState(() => {
@@ -57,8 +54,9 @@ function App() {
 
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
-  // --- (UPGRADE 2) State untuk melacak item yang disalin ---
   const [copiedIndex, setCopiedIndex] = useState(null);
+  // --- (UPGRADE 3) State untuk mengontrol sidebar di mobile ---
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const chatWindowRef = useRef(null);
 
   useEffect(() => {
@@ -70,7 +68,7 @@ function App() {
     if (chatWindowRef.current) {
       chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
     }
-  }, [allChats, activeChatId]);
+  }, [allChats, activeChatId, isSidebarOpen]);
 
   const activeChat = allChats.find(chat => chat.id === activeChatId) || allChats[0];
   useEffect(() => {
@@ -83,42 +81,40 @@ function App() {
     }
   }, [activeChat, allChats]);
 
+  // --- (UPGRADE 3) Modifikasi: Tutup sidebar setelah aksi ---
   const handleNewChat = () => {
     const newChat = createNewChat();
     setAllChats([newChat, ...allChats]);
     setActiveChatId(newChat.id);
+    setIsSidebarOpen(false); // Tutup sidebar
   };
 
+  // --- (UPGRADE 3) Modifikasi: Tutup sidebar setelah aksi ---
   const handleSelectChat = (chatId) => {
     setActiveChatId(chatId);
+    setIsSidebarOpen(false); // Tutup sidebar
   };
 
-  // --- (UPGRADE 1) Fungsi untuk Menghapus Chat ---
   const handleDeleteChat = (chatId) => {
-    // 1. Filter chat
     const filteredChats = allChats.filter(chat => chat.id !== chatId);
     
-    // 2. Tentukan ID aktif baru
     if (filteredChats.length === 0) {
-      // Jika tidak ada chat tersisa, buat satu yang baru
       const newChat = createNewChat();
       setAllChats([newChat]);
       setActiveChatId(newChat.id);
     } else if (activeChatId === chatId) {
-      // Jika chat yang aktif dihapus, pindah ke chat pertama
       setActiveChatId(filteredChats[0].id);
       setAllChats(filteredChats);
     } else {
-      // Jika chat lain yang dihapus, state ID aktif tetap
       setAllChats(filteredChats);
     }
+    // Tidak perlu tutup sidebar, karena tombol hapus ada di dalam sidebar
   };
 
-  // --- (UPGRADE 2) Fungsi untuk Menyalin Teks ---
   const handleCopy = (text, index) => {
     navigator.clipboard.writeText(text);
     setCopiedIndex(index);
-    setTimeout(() => setCopiedIndex(null), 2000); // Reset setelah 2 detik
+    setTimeout(() => setCopiedIndex(null), 2000);
   };
 
   const handleSubmit = async (e) => {
@@ -196,18 +192,30 @@ function App() {
   };
 
   return (
-    <div className="app-layout">
+    // --- (UPGRADE 3) Tambah kelas kondisional 'sidebar-open' ---
+    <div className={`app-layout ${isSidebarOpen ? 'sidebar-open' : ''}`}>
       
+      {/* --- (UPGRADE 3) Overlay untuk mobile --- */}
+      {isSidebarOpen && (
+        <div className="mobile-overlay" onClick={() => setIsSidebarOpen(false)}></div>
+      )}
+
       <Sidebar 
         allChats={allChats}
         activeChatId={activeChatId}
         onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
-        onDeleteChat={handleDeleteChat} // <-- (UPGRADE 1) Pass fungsi hapus
+        onDeleteChat={handleDeleteChat}
       />
 
       <div className="main-chat-area">
         <header className="app-header">
+          {/* --- (UPGRADE 3) Tombol Menu (Hamburger) --- */}
+          <button className="menu-btn" onClick={() => setIsSidebarOpen(true)}>
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
           <h1>{activeChat ? activeChat.title : 'Asisten Riset'}</h1>
         </header>
         
@@ -218,7 +226,6 @@ function App() {
                 <p>{msg.parts[0].text}</p>
               ) : (
                 <>
-                  {/* --- (UPGRADE 2) Tombol Salin --- */}
                   {msg.parts[0].text && (
                     <button 
                       onClick={() => handleCopy(msg.parts[0].text, index)} 
@@ -249,7 +256,7 @@ function App() {
           <input
             type="text"
             value={prompt}
-            onChange={(e) => setPrompt(e.g.target.value)}
+            onChange={(e) => setPrompt(e.target.value)}
             placeholder="Masukkan Topik Penelitian (misal: Blockchain)"
             disabled={loading}
           />
