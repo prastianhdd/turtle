@@ -28,18 +28,26 @@ const PROMPT_CONSTRAINTS = `Required Constraints:
 3. Prioritaskan sumber 5-10 tahun terakhir, kecuali topik bersifat historis.
 4. Wajib menyertakan Daftar Pustaka lengkap untuk setiap klaim yang diparafrasa.
 `;
-// ------------------------------------------
-
+// --- (UPGRADE 4) Tambahkan 'mode' ke chat baru ---
 const createNewChat = () => ({
   id: `chat-${Date.now()}`,
   title: 'Percakapan Baru',
   messages: [],
+  mode: 'research' // Default ke mode riset
 });
 
 function App() {
   const [allChats, setAllChats] = useState(() => {
     const savedChats = localStorage.getItem('geminiMultiChat');
-    return savedChats ? JSON.parse(savedChats) : [createNewChat()];
+    if (savedChats) {
+      const parsedChats = JSON.parse(savedChats);
+      // --- (UPGRADE 4) Migrasi data lama. Tambahkan 'mode' jika tidak ada ---
+      return parsedChats.map(chat => ({
+        ...chat,
+        mode: chat.mode || 'research' // Default chat lama ke 'research'
+      }));
+    }
+    return [createNewChat()]; // Mulai dengan satu chat riset baru
   });
 
   const [activeChatId, setActiveChatId] = useState(() => {
@@ -48,13 +56,13 @@ function App() {
     if (savedActiveId && chats.some(chat => chat.id === savedActiveId)) {
       return savedActiveId;
     }
-    return chats.length > 0 ? chats[0].id : createNewChat().id;
+    const firstChatId = chats.length > 0 ? chats[0].id : null;
+    return firstChatId || createNewChat().id;
   });
 
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState(null);
-  // --- (UPGRADE 3) State untuk mengontrol sidebar di mobile ---
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const chatWindowRef = useRef(null);
 
@@ -70,6 +78,7 @@ function App() {
   }, [allChats, activeChatId, isSidebarOpen]);
 
   const activeChat = allChats.find(chat => chat.id === activeChatId) || allChats[0];
+  
   useEffect(() => {
     if (!activeChat && allChats.length > 0) {
       setActiveChatId(allChats[0].id);
@@ -80,17 +89,16 @@ function App() {
     }
   }, [activeChat, allChats]);
 
-
   const handleNewChat = () => {
     const newChat = createNewChat();
     setAllChats([newChat, ...allChats]);
     setActiveChatId(newChat.id);
-    setIsSidebarOpen(false); // Tutup sidebar
+    setIsSidebarOpen(false);
   };
 
   const handleSelectChat = (chatId) => {
     setActiveChatId(chatId);
-    setIsSidebarOpen(false); // Tutup sidebar
+    setIsSidebarOpen(false);
   };
 
   const handleDeleteChat = (chatId) => {
@@ -106,7 +114,6 @@ function App() {
     } else {
       setAllChats(filteredChats);
     }
-
   };
 
   const handleCopy = (text, index) => {
@@ -115,19 +122,40 @@ function App() {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  // --- (UPGRADE 4) Fungsi Baru untuk mengubah mode ---
+  const handleModeChange = (newMode) => {
+    // Hanya izinkan perubahan jika chat masih baru (belum ada pesan)
+    if (activeChat && activeChat.messages.length === 0) {
+      setAllChats(currentChats =>
+        currentChats.map(chat =>
+          chat.id === activeChatId ? { ...chat, mode: newMode } : chat
+        )
+      );
+    }
+  };
+
+
+  // --- (UPGRADE 4) handleSubmit sekarang Cerdas ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!prompt || loading || !activeChat) return;
 
     setLoading(true);
 
-    const PROMPT_TOPIK = `Topik: ${prompt}\n\n`; 
-    const fullPrompt = 
-      PROMPT_ROLE + 
-      PROMPT_TASK + 
-      PROMPT_TOPIK + 
-      PROMPT_SINTESIS + 
-      PROMPT_CONSTRAINTS;
+    // Tentukan prompt lengkap berdasarkan mode chat
+    let fullPrompt;
+    if (activeChat.mode === 'research') {
+      const PROMPT_TOPIK = `Topic: ${prompt}\n\n`;
+      fullPrompt = 
+        PROMPT_ROLE + 
+        PROMPT_TASK + 
+        PROMPT_TOPIK + 
+        PROMPT_SINTESIS + 
+        PROMPT_CONSTRAINTS;
+    } else {
+      // Mode 'normal', kirim prompt apa adanya
+      fullPrompt = prompt;
+    }
 
     const userMessage = { role: 'user', parts: [{ text: prompt }] };
     const initialModelMessage = { role: 'model', parts: [{ text: "" }] };
@@ -138,6 +166,7 @@ function App() {
         if (chat.id === activeChatId) {
           return {
             ...chat,
+            // Judul di-set saat pesan pertama, mode sudah di-set sebelumnya
             title: isFirstMessage ? prompt.substring(0, 40) : chat.title, 
             messages: [...chat.messages, userMessage, initialModelMessage]
           };
@@ -148,6 +177,7 @@ function App() {
     setPrompt('');
 
     try {
+      // Logika streaming tetap sama, API akan menangani prompt apa adanya
       const result = await model.generateContentStream(fullPrompt);
       const stream = result.stream; 
 
@@ -189,10 +219,12 @@ function App() {
     }
   };
 
+  // Tentukan apakah mode selector harus dinonaktifkan
+  const isChatStarted = activeChat && activeChat.messages.length > 0;
+
   return (
     <div className={`app-layout ${isSidebarOpen ? 'sidebar-open' : ''}`}>
       
-      {/* --- (UPGRADE 3) Overlay untuk mobile --- */}
       {isSidebarOpen && (
         <div className="mobile-overlay" onClick={() => setIsSidebarOpen(false)}></div>
       )}
@@ -207,7 +239,6 @@ function App() {
 
       <div className="main-chat-area">
         <header className="app-header">
-          {/* --- (UPGRADE 3) Tombol Menu (Hamburger) --- */}
           <button className="menu-btn" onClick={() => setIsSidebarOpen(true)}>
             <span></span>
             <span></span>
@@ -216,7 +247,6 @@ function App() {
           <h1>{activeChat ? activeChat.title : 'Asisten Riset'}</h1>
         </header>
         
-        {/* --- (UPGRADE) Tambahkan 'key' untuk memicu animasi saat ganti chat --- */}
         <div className="chat-window" ref={chatWindowRef} key={activeChatId}>
           {activeChat && activeChat.messages.map((msg, index) => (
             <div key={index} className={`chat-bubble ${msg.role}`}>
@@ -250,12 +280,42 @@ function App() {
           )}
         </div>
 
+        {/* --- (UPGRADE 4) UI Mode Selector --- */}
+        <div className="mode-selector-container">
+          <div className="mode-selector">
+            <button 
+              className={`mode-btn ${activeChat?.mode === 'research' ? 'active' : ''}`}
+              onClick={() => handleModeChange('research')}
+              disabled={isChatStarted}
+            >
+              Asisten Riset
+            </button>
+            <button 
+              className={`mode-btn ${activeChat?.mode === 'normal' ? 'active' : ''}`}
+              onClick={() => handleModeChange('normal')}
+              disabled={isChatStarted}
+            >
+              Chat Normal
+            </button>
+          </div>
+          {isChatStarted && (
+            <span className="mode-locked-tooltip">
+              Mode terkunci setelah pesan pertama.
+            </span>
+          )}
+        </div>
+
         <form className="chat-form" onSubmit={handleSubmit}>
           <input
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Masukkan Topik Penelitian (misal: materi blockchain dalam maksimal 300 kata)"
+            // --- (UPGRADE 4) Placeholder Dinamis ---
+            placeholder={
+              activeChat?.mode === 'research' 
+                ? "Masukkan Topik Penelitian (misal: Blockchain)"
+                : "Ketik pesan (misal: Halo, apa kabar?)"
+            }
             disabled={loading}
           />
           <button type="submit" disabled={loading}>
