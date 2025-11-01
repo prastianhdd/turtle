@@ -16,7 +16,6 @@ Lihat Demo Langsung : https://gemini-ac.vercel.app/
 ## Desain Responsif (Mobile-First):
 
 * Sidebar di desktop untuk navigasi yang mudah.
-
 * Streaming Respons Real-time: Jawaban dari AI ditampilkan kata demi kata , tidak perlu menunggu respons penuh.
 
 ## Fitur Kualitas Hidup (QoL):
@@ -27,13 +26,10 @@ Lihat Demo Langsung : https://gemini-ac.vercel.app/
 
 * Animasi Halus: Transisi dan animasi fade-in yang mulus untuk bubble obrolan dan perpindahan chat.
 
-🛠️ Teknologi yang Digunakan
+## Teknologi yang Digunakan
+
 - Frontend: React (Vite), React Markdown
-
 - Backend: Vercel Serverless Functions (Node.js)
-
 - API: Google Gemini (Generative AI)
-
 - Deployment: Vercel
-
 - Styling: CSS Murni (dengan Flexbox, Grid, dan Media Queries)
