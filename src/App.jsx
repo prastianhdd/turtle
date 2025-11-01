@@ -1,36 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-// HAPUS: import model from './gemini.js'; 
+// 'model' sudah tidak diimpor dari sini, ini sudah benar
 import Sidebar from './Sidebar.jsx';
 import './App.css'; 
 
-// --- (Semua konstanta PROMPT Anda tetap sama) ---
-const PROMPT_ROLE = `Role: Peneliti Akademik / Analis Riset\n\n`;
-const PROMPT_TASK = `Task:
-- Melakukan penelitian literatur (studi pusaka) yang mendalam dan kritis mengenai {Topik}.
-- Mengidentifikasi, menganalisis, dan mensintesis informasi dari berbagai sumber kredibel.
-- Menghasilkan rangkuman sintetis yang koheren, komprehensif, dan objektif berdasarkan temuan penelitian.\n\n`;
-const PROMPT_SINTESIS = `Sintesis & Penulisan :
-- Parafrasa Mendalam (Wajib): Seluruh rangkuman harus ditulis ulang menggunakan bahasa dan struktur kalimat sendiri. Ini bukan sekadar mengganti sinonim (spin text). WAJIB mengubah struktur kalimat (misal: dari aktif ke pasif, memecah 1 kalimat kompleks menjadi 2 kalimat, atau menggabungkan 2 kalimat singkat) dan urutan penyampaian poin, selama alur logika tetap terjaga. DILARANG keras melakukan salin-tempel atau model "tambal sulam".
-- Rangkuman harus secara akurat dan netral mewakili ide, argumen, dan data dari penulis asli. Jangan memasukkan opini, interpretasi, atau kritik pribadi.
-- Gunakan bahasa Indonesia yang formal, baku (sesuai EYD dan KBBI), jelas, dan efektif.
-- Identifikasi dan sampaikan tesis utama (ide pokok), argumen pendukung, metodologi (jika relevan), dan kesimpulan dari sumber.
-- Gaya Penulisan Lanjutan (Anti-Deteksi): 
-   * Hindari keseragaman panjang kalimat. Gunakan kombinasi kalimat pendek (misalnya 5-10 kata) untuk penegasan, diikuti oleh kalimat yang lebih panjang dan kompleks (25-35 kata) yang menggunakan anak kalimat atau konjungsi. Ritme tulisan harus terasa dinamis, bukan monoton.
-   * Hindari penggunaan kata atau frasa yang paling umum secara berulang. Gunakan sinonim yang tepat namun bervariasi. Jika sebuah konsep dapat dijelaskan dengan beberapa cara, jangan selalu memilih cara yang paling standar atau "paling aman".
-   * Meskipun harus formal dan objektif, alur tulisan harus terasa seperti seorang analis yang memandu pembaca, bukan seperti ensiklopedia yang kaku. Gunakan kata transisi (misalnya "namun", "selain itu", "akibatnya") secara wajar, tetapi jangan berlebihan. Biarkan beberapa paragraf mengalir secara logis tanpa kata transisi eksplisit jika hubungannya sudah jelas.\n\n`;
-const PROMPT_CONSTRAINTS = `Required Constraints:
-- Referensi utama HARUS berasal dari sumber ilmiah atau akademik (Jurnal, Buku Akademik, Laporan Penelitian Resmi, Prosiding Konferensi).
-- Dilarang menggunakan blog pribadi, forum, media sosial, atau Wikipedia sebagai sumber sitasi.
-- Wajib menyertakan Daftar Pustaka lengkap untuk setiap klaim yang diparafrasa.
-`;
-// ------------------------------------------
+// --- SEMUA PROMPT SUDAH DIHAPUS DARI SINI ---
+// Ini sudah benar, karena sudah pindah ke backend.
 
 const createNewChat = () => ({
   id: `chat-${Date.now()}`,
   title: 'Percakapan Baru',
   messages: [],
-  mode: 'research'
+  mode: 'research' // Mode default saat chat baru dibuat
 });
 
 function App() {
@@ -38,6 +19,7 @@ function App() {
     const savedChats = localStorage.getItem('geminiMultiChat');
     if (savedChats) {
       const parsedChats = JSON.parse(savedChats);
+      // Migrasi data lama (sudah benar)
       return parsedChats.map(chat => ({ ...chat, mode: chat.mode || 'research' }));
     }
     return [createNewChat()];
@@ -59,17 +41,20 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const chatWindowRef = useRef(null);
 
+  // Efek untuk sinkronisasi localStorage (sudah benar)
   useEffect(() => {
     localStorage.setItem('geminiMultiChat', JSON.stringify(allChats));
     localStorage.setItem('geminiActiveChatId', activeChatId);
   }, [allChats, activeChatId]);
 
+  // Efek untuk auto-scroll (sudah benar)
   useEffect(() => {
     if (chatWindowRef.current) {
       chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
     }
-  }, [allChats, activeChatId, isSidebarOpen]);
+  }, [allChats, activeChatId, isSidebarOpen]); // 'allChats' akan memicu ini saat streaming
 
+  // Logika untuk menemukan chat aktif (sudah benar)
   const activeChat = allChats.find(chat => chat.id === activeChatId) || allChats[0];
   
   useEffect(() => {
@@ -81,6 +66,8 @@ function App() {
       setActiveChatId(newChat.id);
     }
   }, [activeChat, allChats]);
+
+  // --- SEMUA FUNGSI HANDLER (SUDAH BENAR) ---
 
   const handleNewChat = () => {
     const newChat = createNewChat();
@@ -124,25 +111,20 @@ function App() {
     }
   };
 
-  // --- (UPGRADE 5.A) handleSubmit MEMANGGIL API LOKAL ---
+  // --- FUNGSI handleSubmit (SUDAH BENAR) ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!prompt || loading || !activeChat) return;
 
     setLoading(true);
 
-    let fullPrompt;
-    if (activeChat.mode === 'research') {
-      const PROMPT_TOPIK = `Topic: ${prompt}\n\n`;
-      fullPrompt = PROMPT_ROLE + PROMPT_TASK + PROMPT_TOPIK + PROMPT_SINTESIS + PROMPT_CONSTRAINTS;
-    } else {
-      fullPrompt = prompt;
-    }
-
     const userMessage = { role: 'user', parts: [{ text: prompt }] };
     const initialModelMessage = { role: 'model', parts: [{ text: "" }] };
     const isFirstMessage = activeChat.messages.length === 0;
+    const chatHistory = activeChat.messages; // Riwayat sebelum pesan baru
+    const currentPrompt = prompt; // Simpan prompt saat ini
     
+    // Update UI secara optimis
     setAllChats(currentChats => 
       currentChats.map(chat => {
         if (chat.id === activeChatId) {
@@ -155,23 +137,28 @@ function App() {
         return chat;
       })
     );
-    setPrompt('');
+    setPrompt(''); // Kosongkan input
 
     try {
-      // 1. Panggil API backend kita sendiri
+      // Panggil backend (sudah benar)
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ fullPrompt }),
+        body: JSON.stringify({ 
+          currentUserPrompt: currentPrompt, // Kirim prompt baru
+          history: chatHistory, // Kirim riwayat lama
+          mode: activeChat.mode // Kirim mode yang dipilih
+        }),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      // 2. Baca stream dari API backend kita
+      // Baca stream dari backend (sudah benar)
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let accumulatedText = "";
@@ -183,7 +170,7 @@ function App() {
         const chunkText = decoder.decode(value);
         accumulatedText += chunkText;
         
-        // 3. Update UI seperti sebelumnya
+        // Update UI dengan teks streaming (sudah benar)
         setAllChats(currentChats =>
           currentChats.map(chat => {
             if (chat.id === activeChatId) {
@@ -218,11 +205,14 @@ function App() {
 
   const isChatStarted = activeChat && activeChat.messages.length > 0;
 
+  // --- RENDER JSX (SUDAH BENAR) ---
   return (
     <div className={`app-layout ${isSidebarOpen ? 'sidebar-open' : ''}`}>
+      
       {isSidebarOpen && (
         <div className="mobile-overlay" onClick={() => setIsSidebarOpen(false)}></div>
       )}
+
       <Sidebar 
         allChats={allChats}
         activeChatId={activeChatId}
@@ -230,6 +220,7 @@ function App() {
         onNewChat={handleNewChat}
         onDeleteChat={handleDeleteChat}
       />
+
       <div className="main-chat-area">
         <header className="app-header">
           <button className="menu-btn" onClick={() => setIsSidebarOpen(true)}>
@@ -239,6 +230,7 @@ function App() {
           </button>
           <h1>{activeChat ? activeChat.title : 'Asisten Riset'}</h1>
         </header>
+        
         <div className="chat-window" ref={chatWindowRef} key={activeChatId}>
           {activeChat && activeChat.messages.map((msg, index) => (
             <div key={index} className={`chat-bubble ${msg.role}`}>
@@ -260,6 +252,7 @@ function App() {
               )}
             </div>
           ))}
+          
           {loading && (
             <div className="loading-indicator-container">
               <div className="loading-indicator">
@@ -270,6 +263,7 @@ function App() {
             </div>
           )}
         </div>
+
         <div className="mode-selector-container">
           <div className="mode-selector">
             <button 
@@ -293,6 +287,7 @@ function App() {
             </span>
           )}
         </div>
+
         <form className="chat-form" onSubmit={handleSubmit}>
           <input
             type="text"
