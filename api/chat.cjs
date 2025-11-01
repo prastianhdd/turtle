@@ -1,13 +1,15 @@
-// /api/chat.js
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google-generative-ai';
+// /api/chat.cjs
+// Gunakan sintaks CommonJS (require)
 
-// --- (UPGRADE 1) Impor prompt dari file terpisah ---
-import { 
+const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
+
+// --- (UPGRADE) Impor prompt dari file .cjs ---
+const { 
   PROMPT_ROLE, 
   PROMPT_TASK, 
   PROMPT_SINTESIS, 
   PROMPT_CONSTRAINTS 
-} from './prompts.js';
+} = require('./prompts.cjs');
 // ----------------------------------------------------
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -18,8 +20,6 @@ if (!geminiApiKey) {
 
 const genAI = new GoogleGenerativeAI(geminiApiKey);
 
-// --- (PROMPT LAMA DIHAPUS DARI SINI) ---
-
 const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
   { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -27,20 +27,18 @@ const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
-// --- (UPGRADE 2) Definisikan Model Sesuai Permintaan Anda ---
 const researchModel = genAI.getGenerativeModel({ 
-  model: "gemini-2.5-pro", // Sesuai permintaan Anda
+  model: "gemini-2.5-pro",
   safetySettings: safetySettings
 });
 
 const normalModel = genAI.getGenerativeModel({ 
-  model: "gemini-2.5-flash", // Sesuai permintaan Anda
+  model: "gemini-2.5-flash",
   safetySettings: safetySettings
 });
-// --------------------------------------------------------
 
-// --- HANDLER API UTAMA ---
-export default async function handler(req, res) {
+// --- HANDLER API UTAMA (Gunakan module.exports) ---
+module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -62,9 +60,7 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-cache');
 
     if (mode === 'research') {
-      // --- MODE RISET (Menggunakan prompt yang diimpor) ---
       const PROMPT_TOPIK = `Topic: ${currentUserPrompt}\n\n`;
-      // Gunakan konstanta yang diimpor
       const fullPrompt = PROMPT_ROLE + PROMPT_TASK + PROMPT_TOPIK + PROMPT_SINTESIS + PROMPT_CONSTRAINTS;
       
       const result = await researchModel.generateContentStream(fullPrompt);
@@ -82,7 +78,6 @@ export default async function handler(req, res) {
       res.end();
 
     } else {
-      // --- MODE NORMAL (Menggunakan model 'flash') ---
       const geminiHistory = history.map(msg => ({
         role: msg.role,
         parts: msg.parts,
@@ -116,4 +111,4 @@ export default async function handler(req, res) {
       res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
   }
-}
+};s

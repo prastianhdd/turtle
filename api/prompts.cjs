@@ -21,3 +21,11 @@ export const PROMPT_CONSTRAINTS = `Required Constraints:
 - Dilarang menggunakan blog pribadi, forum, media sosial, atau Wikipedia sebagai sumber sitasi.
 - Wajib menyertakan Daftar Pustaka lengkap untuk setiap klaim yang diparafrasa.
 `;
+
+// Ekspor semua konstanta
+module.exports = {
+  PROMPT_ROLE,
+  PROMPT_TASK,
+  PROMPT_SINTESIS,
+  PROMPT_CONSTRAINTS
+};
