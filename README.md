@@ -1,8 +1,8 @@
 # Gemini AI Science (Asisten Riset & Chat)
 Aplikasi web ini adalah antarmuka chat kustom yang aman dan canggih untuk Google Gemini API. Proyek ini berevolusi dari frontend sederhana menjadi aplikasi full-stack mini yang di-hosting di Vercel, lengkap dengan backend serverless yang aman dan dua mode AI yang berbeda.
 
-Lihat Demo Langsung : https://gemini-ac.vercel.app/
-
+Lihat Demo Langsung : [website
+](https://www.geminilabweb.site/)
 ## Fitur Utama
 
 1. Mode Asisten Riset: Menggunakan model gemini-2.5-pro yang kuat dan  system kustom yang mendalam untuk penelitian akademis.
