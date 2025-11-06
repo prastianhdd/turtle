@@ -58,12 +58,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  /* --- (UPGRADE) Latar Belakang Kustom Anda --- */
-  background-image: url('/background.png'); /* Vite otomatis mencari di /public */
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed; /* Membuat background diam saat di-scroll */
-  /* --- AKHIR UPGRADE --- */
 }
 
 /* 6. Bubble Chat (Tidak ada perubahan signifikan) */
@@ -84,20 +78,13 @@ body {
   margin: 0;
 }
 
-/* 7. Kontainer Respons Model (Mengembalikan style bubble) */
 .chat-bubble.model {
-  /* --- (UPGRADE) Mengembalikan style agar terbaca di atas background --- */
-  background-color: #ffffff; /* Latar belakang putih solid */
-  box-shadow: 0 2px 5px rgba(0,0,0,0.08); /* Shadow agar 'mengapung' */
-  padding: 10px 14px; /* Kembalikan padding */
-  border-radius: 18px; /* Kembalikan radius */
-  border-bottom-left-radius: 4px; /* Style lama kita */
-  /* --- AKHIR UPGRADE --- */
-  
+  background-color: #ffffff;
   color: #333;
   align-self: stretch;
   max-width: 100%;
-  position: relative; /* Ini penting untuk tombol 'Salin' */
+  padding: 0;
+  border-radius: 0;
 }
 
 /* 7. Styling Markdown (Tidak ada perubahan) */
