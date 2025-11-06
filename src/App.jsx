@@ -1,10 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-// HAPUS: import model from './gemini.js'; 
 import Sidebar from './Sidebar.jsx';
 import './App.css'; 
 
-// --- (Semua konstanta PROMPT Anda tetap sama) ---
+// --- BARU: Import PDF.js ---
+import * as pdfjsLib from 'pdfjs-dist';
+// Tentukan path ke worker (wajib untuk PDF.js)
+// Salin file worker dari 'node_modules/pdfjs-dist/build/pdf.worker.mjs' ke folder 'public' Anda
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdf.worker.mjs',
+  import.meta.url,
+).toString();
+
+// --- (PROMPT UNTUK RISET TETAP SAMA) ---
 const PROMPT_ROLE = `Role: Peneliti Akademik / Analis Riset\n\n`;
 const PROMPT_TASK = `Task:
 - Melakukan penelitian literatur (studi pusaka) yang mendalam dan kritis mengenai {Topik}.
@@ -26,11 +34,33 @@ const PROMPT_CONSTRAINTS = `Required Constraints:
 `;
 // ------------------------------------------
 
+// --- BARU: PROMPT UNTUK MODE MERINGKAS ---
+const PROMPT_SUMMARY_TASK = `Role: Analis Profesional
+
+Task:
+- Anda akan menerima sebuah teks mentah (bisa jadi dari hasil OCR atau ekstraksi file).
+- Tugas utama Anda adalah meringkas teks tersebut secara komprehensif.
+- Identifikasi poin-poin utama, ide pokok, dan kesimpulan dari teks.
+- Abaikan noise, teks footer/header yang berulang, atau artefak format yang tidak relevan.
+- Hasilkan ringkasan yang jelas, padat, dan koheren dalam bahasa Indonesia yang formal dan baku.
+- Jika teks terlihat seperti transkrip atau memiliki format yang aneh, lakukan yang terbaik untuk mengekstrak maknanya.
+
+Format Output:
+- Berikan ringkasan dalam format Markdown yang terstruktur. 
+- Gunakan bullet points untuk poin-poin penting jika sesuai.
+- Parafrasa kalimat untuk mengindarkan pendeteksi AI
+
+Teks yang Akan Diringkas:
+---
+`; // Teks asli akan ditambahkan di bawah ini
+
+// ------------------------------------------
+
 const createNewChat = () => ({
   id: `chat-${Date.now()}`,
   title: 'Percakapan Baru',
   messages: [],
-  mode: 'research'
+  mode: 'research' // Default mode tetap research
 });
 
 function App() {
@@ -38,7 +68,11 @@ function App() {
     const savedChats = localStorage.getItem('geminiMultiChat');
     if (savedChats) {
       const parsedChats = JSON.parse(savedChats);
-      return parsedChats.map(chat => ({ ...chat, mode: chat.mode || 'research' }));
+      // Pastikan mode 'normal' lama diubah ke 'research' jika ada
+      return parsedChats.map(chat => ({ 
+        ...chat, 
+        mode: chat.mode === 'normal' ? 'research' : (chat.mode || 'research') 
+      }));
     }
     return [createNewChat()];
   });
@@ -53,8 +87,13 @@ function App() {
     return firstChatId || createNewChat().id;
   });
 
-  const [prompt, setPrompt] = useState('');
+  // --- MODIFIKASI: Pisah state untuk input yang berbeda ---
+  const [researchPrompt, setResearchPrompt] = useState(''); // Untuk mode riset
+  const [summaryText, setSummaryText] = useState(''); // Untuk mode meringkas
+  const [inputFileName, setInputFileName] = useState(''); // Nama file yg diupload
+  
   const [loading, setLoading] = useState(false);
+  const [isParsing, setIsParsing] = useState(false); // --- BARU: Loading state untuk PDF
   const [copiedIndex, setCopiedIndex] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const chatWindowRef = useRef(null);
@@ -68,7 +107,7 @@ function App() {
     if (chatWindowRef.current) {
       chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight;
     }
-  }, [allChats, activeChatId, isSidebarOpen]);
+  }, [allChats, activeChatId, isSidebarOpen, loading]); // Tambahkan loading
 
   const activeChat = allChats.find(chat => chat.id === activeChatId) || allChats[0];
   
@@ -87,11 +126,19 @@ function App() {
     setAllChats([newChat, ...allChats]);
     setActiveChatId(newChat.id);
     setIsSidebarOpen(false);
+    // --- BARU: Reset input ---
+    setResearchPrompt('');
+    setSummaryText('');
+    setInputFileName('');
   };
 
   const handleSelectChat = (chatId) => {
     setActiveChatId(chatId);
     setIsSidebarOpen(false);
+    // --- BARU: Reset input ---
+    setResearchPrompt('');
+    setSummaryText('');
+    setInputFileName('');
   };
 
   const handleDeleteChat = (chatId) => {
@@ -124,41 +171,84 @@ function App() {
     }
   };
 
-  // --- (UPGRADE 5.A) handleSubmit MEMANGGIL API LOKAL ---
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!prompt || loading || !activeChat) return;
-
-    setLoading(true);
-
-    let fullPrompt;
-    if (activeChat.mode === 'research') {
-      const PROMPT_TOPIK = `Topic: ${prompt}\n\n`;
-      fullPrompt = PROMPT_ROLE + PROMPT_TASK + PROMPT_TOPIK + PROMPT_SINTESIS + PROMPT_CONSTRAINTS;
-    } else {
-      fullPrompt = prompt;
+  // --- BARU: Fungsi untuk parsing file PDF ---
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file || file.type !== 'application/pdf') {
+      alert("Silakan unggah file PDF.");
+      return;
     }
 
-    const userMessage = { role: 'user', parts: [{ text: prompt }] };
+    setIsParsing(true);
+    setSummaryText('');
+    setInputFileName(file.name);
+
+    try {
+      const fileReader = new FileReader();
+      fileReader.onload = async (event) => {
+        const typedArray = new Uint8Array(event.target.result);
+        const loadingTask = pdfjsLib.getDocument(typedArray);
+        const pdf = await loadingTask.promise;
+
+        let allText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map(item => item.str).join(' ');
+          allText += pageText + '\n\n'; // Tambah spasi antar halaman
+        }
+        
+        setSummaryText(allText);
+        setIsParsing(false);
+      };
+      fileReader.readAsArrayBuffer(file);
+    } catch (error) {
+      console.error("Error parsing PDF:", error);
+      alert("Gagal memproses file PDF.");
+      setIsParsing(false);
+      setInputFileName('');
+    }
+    
+    // Reset input file agar bisa upload file yg sama lagi
+    e.target.value = null;
+  };
+
+  // --- BARU: Fungsi untuk menjalankan stream (dipisah agar bisa dipakai ulang) ---
+  const runStreamRequest = async (fullPrompt, userMessage) => {
+    setLoading(true);
+
     const initialModelMessage = { role: 'model', parts: [{ text: "" }] };
     const isFirstMessage = activeChat.messages.length === 0;
     
+    // Tentukan judul jika ini pesan pertama
+    let chatTitle = activeChat.title;
+    if (isFirstMessage) {
+      if (activeChat.mode === 'research') {
+        chatTitle = userMessage.parts[0].text.substring(0, 40);
+      } else if (activeChat.mode === 'summary') {
+        chatTitle = `Ringkasan: ${inputFileName || 'Teks'}`;
+      }
+    }
+
     setAllChats(currentChats => 
       currentChats.map(chat => {
         if (chat.id === activeChatId) {
           return {
             ...chat,
-            title: isFirstMessage ? prompt.substring(0, 40) : chat.title, 
+            title: chatTitle, 
             messages: [...chat.messages, userMessage, initialModelMessage]
           };
         }
         return chat;
       })
     );
-    setPrompt('');
+    
+    // Reset input
+    setResearchPrompt('');
+    setSummaryText('');
+    setInputFileName('');
 
     try {
-      // 1. Panggil API backend kita sendiri
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -171,7 +261,6 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // 2. Baca stream dari API backend kita
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let accumulatedText = "";
@@ -183,7 +272,6 @@ function App() {
         const chunkText = decoder.decode(value);
         accumulatedText += chunkText;
         
-        // 3. Update UI seperti sebelumnya
         setAllChats(currentChats =>
           currentChats.map(chat => {
             if (chat.id === activeChatId) {
@@ -216,7 +304,98 @@ function App() {
     }
   };
 
+
+  // --- MODIFIKASI: handleSubmit utama sekarang jadi "router" ---
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (loading || isParsing || !activeChat) return;
+
+    if (activeChat.mode === 'research') {
+      if (!researchPrompt) return;
+      
+      // Logika untuk Mode Riset
+      const PROMPT_TOPIK = `Topic: ${researchPrompt}\n\n`;
+      const fullPrompt = PROMPT_ROLE + PROMPT_TASK + PROMPT_TOPIK + PROMPT_SINTESIS + PROMPT_CONSTRAINTS;
+      const userMessage = { role: 'user', parts: [{ text: researchPrompt }] };
+      
+      await runStreamRequest(fullPrompt, userMessage);
+
+    } else if (activeChat.mode === 'summary') {
+      if (!summaryText) return;
+
+      // Logika untuk Mode Meringkas
+      const fullPrompt = PROMPT_SUMMARY_TASK + summaryText;
+      const userMessageText = inputFileName 
+        ? `Tolong ringkas file: "${inputFileName}"`
+        : `Tolong ringkas teks berikut: "${summaryText.substring(0, 50)}..."`;
+      const userMessage = { role: 'user', parts: [{ text: userMessageText }] };
+
+      await runStreamRequest(fullPrompt, userMessage);
+    }
+  };
+
   const isChatStarted = activeChat && activeChat.messages.length > 0;
+  
+  // --- BARU: Fungsi untuk render form input yang dinamis ---
+  const renderInputForm = () => {
+    const commonDisabled = loading || isParsing;
+
+    if (activeChat?.mode === 'research') {
+      return (
+        <>
+          <input
+            type="text"
+            value={researchPrompt}
+            onChange={(e) => setResearchPrompt(e.target.value)}
+            placeholder="Masukkan Topik Penelitian (misal: Blockchain)"
+            disabled={commonDisabled}
+          />
+          <button type="submit" disabled={commonDisabled || !researchPrompt}>
+            {loading ? 'Memproses...' : 'Kirim'}
+          </button>
+        </>
+      );
+    }
+
+    if (activeChat?.mode === 'summary') {
+      return (
+        <div className="summary-input-area">
+          <textarea
+            className="summary-textarea"
+            value={summaryText}
+            onChange={(e) => setSummaryText(e.target.value)}
+            placeholder={
+              isParsing 
+                ? 'Sedang memproses PDF...' 
+                : 'Salin-tempel teks Anda di sini, atau unggah file PDF...'
+            }
+            disabled={commonDisabled}
+          />
+          <div className="summary-actions">
+            <div>
+              <label htmlFor="file-upload" className="file-input-label">
+                {/* Ikon sederhana (opsional) */}
+                <span>📁</span> 
+                <span>{isParsing ? 'Memproses...' : (inputFileName || 'Unggah PDF')}</span>
+              </label>
+              <input 
+                id="file-upload" 
+                type="file" 
+                accept=".pdf"
+                onChange={handleFileChange}
+                disabled={commonDisabled}
+              />
+            </div>
+            <button type="submit" disabled={commonDisabled || !summaryText}>
+              {loading ? 'Meringkas...' : 'Kirim Ringkasan'}
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    return null; // Fallback
+  };
 
   return (
     <div className={`app-layout ${isSidebarOpen ? 'sidebar-open' : ''}`}>
@@ -255,12 +434,13 @@ function App() {
                       {copiedIndex === index ? 'Disalin!' : 'Salin'}
                     </button>
                   )}
-                  <ReactMarkdown>{msg.parts[0].text}</ReactMarkdown>
+                  {/* --- MODIFIKASI: Tambahkan check untuk teks kosong --- */}
+                  <ReactMarkdown>{msg.parts[0].text || "..."}</ReactMarkdown>
                 </>
               )}
             </div>
           ))}
-          {loading && (
+          {loading && !isParsing && ( // --- MODIFIKASI: Jangan tampilkan jika sedang parsing
             <div className="loading-indicator-container">
               <div className="loading-indicator">
                 <span></span>
@@ -272,6 +452,7 @@ function App() {
         </div>
         <div className="mode-selector-container">
           <div className="mode-selector">
+            {/* --- MODIFIKASI: Ubah tombol mode --- */}
             <button 
               className={`mode-btn ${activeChat?.mode === 'research' ? 'active' : ''}`}
               onClick={() => handleModeChange('research')}
@@ -280,11 +461,11 @@ function App() {
               Asisten Riset
             </button>
             <button 
-              className={`mode-btn ${activeChat?.mode === 'normal' ? 'active' : ''}`}
-              onClick={() => handleModeChange('normal')}
+              className={`mode-btn ${activeChat?.mode === 'summary' ? 'active' : ''}`}
+              onClick={() => handleModeChange('summary')}
               disabled={isChatStarted}
             >
-              Chat Normal
+              Meringkas File
             </button>
           </div>
           {isChatStarted && (
@@ -294,20 +475,8 @@ function App() {
           )}
         </div>
         <form className="chat-form" onSubmit={handleSubmit}>
-          <input
-            type="text"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder={
-              activeChat?.mode === 'research' 
-                ? "Masukkan Topik Penelitian (misal: Blockchain)"
-                : "Ketik pesan (misal: Halo, apa kabar?)"
-            }
-            disabled={loading}
-          />
-          <button type="submit" disabled={loading}>
-            {loading ? 'Memproses...' : 'Kirim'}
-          </button>
+          {/* --- MODIFIKASI: Panggil fungsi render dinamis --- */}
+          {renderInputForm()}
         </form>
       </div>
     </div>
