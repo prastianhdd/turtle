@@ -5,12 +5,7 @@ import './App.css';
 
 // --- BARU: Import PDF.js ---
 import * as pdfjsLib from 'pdfjs-dist';
-// Tentukan path ke worker (wajib untuk PDF.js)
-// Salin file worker dari 'node_modules/pdfjs-dist/build/pdf.worker.mjs' ke folder 'public' Anda
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdf.worker.mjs',
-  import.meta.url,
-).toString();
+pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.mjs`;
 
 // --- (PROMPT UNTUK RISET TETAP SAMA) ---
 const PROMPT_ROLE = `Role: Peneliti Akademik / Analis Riset\n\n`;
@@ -171,11 +166,16 @@ function App() {
     }
   };
 
-  // --- BARU: Fungsi untuk parsing file PDF ---
+  // --- BARU (VERSI 2): Fungsi untuk parsing file PDF (Lebih Robust) ---
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    if (!file || file.type !== 'application/pdf') {
+    if (!file) {
+      return; // Tidak ada file dipilih
+    }
+    
+    if (file.type !== 'application/pdf') {
       alert("Silakan unggah file PDF.");
+      e.target.value = null; // Reset input
       return;
     }
 
@@ -183,9 +183,11 @@ function App() {
     setSummaryText('');
     setInputFileName(file.name);
 
-    try {
-      const fileReader = new FileReader();
-      fileReader.onload = async (event) => {
+    const fileReader = new FileReader();
+
+    // Pindahkan try..catch ke DALAM onload
+    fileReader.onload = async (event) => {
+      try {
         const typedArray = new Uint8Array(event.target.result);
         const loadingTask = pdfjsLib.getDocument(typedArray);
         const pdf = await loadingTask.promise;
@@ -199,15 +201,29 @@ function App() {
         }
         
         setSummaryText(allText);
-        setIsParsing(false);
-      };
-      fileReader.readAsArrayBuffer(file);
-    } catch (error) {
-      console.error("Error parsing PDF:", error);
-      alert("Gagal memproses file PDF.");
-      setIsParsing(false);
-      setInputFileName('');
-    }
+        // setIsParsing(false); // Dihapus dari sini, dipindah ke 'finally'
+
+      } catch (error) {
+        console.error("Error parsing PDF di dalam onload:", error);
+        alert(`Gagal memproses file PDF: ${error.message}. Cek konsol (F12) untuk detail.`);
+        setInputFileName(''); // Reset nama file jika gagal
+        
+      } finally {
+        // Ini akan SELALU dijalankan, baik sukses atau gagal
+        setIsParsing(false); 
+      }
+    };
+
+    // Tambahkan error handler untuk FileReader itu sendiri
+    fileReader.onerror = (error) => {
+       console.error("Error FileReader:", error);
+       alert("Gagal membaca file.");
+       setIsParsing(false);
+       setInputFileName('');
+    };
+
+    // Mulai membaca file
+    fileReader.readAsArrayBuffer(file);
     
     // Reset input file agar bisa upload file yg sama lagi
     e.target.value = null;
