@@ -302,6 +302,10 @@ body {
   .chat-form {
     padding: 1rem;
   }
+  .summary-textarea {
+    min-height: 60px;
+    flex-shrink: 1;
+  }
 }
 
 @keyframes fadeInContent {
