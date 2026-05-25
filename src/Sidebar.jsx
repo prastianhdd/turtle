@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import SpikeMark from './components/SpikeMark';
 import { useToast } from './components/Toast';
+import { authHeaders } from './hooks/useAuth';
 
 function Sidebar({
   chats,
@@ -21,7 +22,7 @@ function Sidebar({
 
   const refreshProjects = useCallback(async () => {
     try {
-      const res = await fetch('/api/projects');
+      const res = await fetch('/api/projects', { headers: authHeaders() });
       if (res.ok) setProjects(await res.json());
     } catch (err) {
       console.error('projects', err);
@@ -37,7 +38,7 @@ function Sidebar({
     try {
       const res = await fetch('/api/projects', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ name })
       });
       if (res.ok) {
@@ -53,7 +54,7 @@ function Sidebar({
   const handleDeleteProject = async (id, e) => {
     e.stopPropagation();
     if (!confirm('Hapus proyek? Chat di dalamnya tidak ikut terhapus.')) return;
-    await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+    await fetch(`/api/projects/${id}`, { method: 'DELETE', headers: authHeaders() });
     refreshProjects();
     toast.success('Proyek dihapus');
   };

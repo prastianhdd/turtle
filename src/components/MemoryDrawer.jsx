@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { authHeaders } from '../hooks/useAuth';
 
 export default function MemoryDrawer({ open, onClose }) {
   const [memories, setMemories] = useState([]);
@@ -7,7 +8,7 @@ export default function MemoryDrawer({ open, onClose }) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/memories');
+      const res = await fetch('/api/memories', { headers: authHeaders() });
       if (res.ok) setMemories(await res.json());
     } catch (err) {
       console.error(err);
@@ -21,7 +22,7 @@ export default function MemoryDrawer({ open, onClose }) {
   }, [open, refresh]);
 
   const handleDelete = async (id) => {
-    await fetch(`/api/memories/${id}`, { method: 'DELETE' });
+    await fetch(`/api/memories/${id}`, { method: 'DELETE', headers: authHeaders() });
     refresh();
   };
 

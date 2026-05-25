@@ -35,3 +35,8 @@ dist-ssr
 data/
 
 DESIGN.md
+
+deploy/
+
+.env.example
+

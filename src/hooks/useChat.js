@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { authHeaders } from './useAuth';
 
 async function api(path, opts = {}) {
   const isFormData = opts.body instanceof FormData;
   const headers = {
+    ...authHeaders(),
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(opts.headers || {})
   };
@@ -150,7 +152,10 @@ export function useChat() {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ chatId: activeChatId, userMessage: text, mode, documentId, imageId }),
         signal: ac.signal
       });
@@ -269,7 +274,7 @@ export function useChat() {
     // Hapus pesan setelah lastUser di backend
     const toDelete = msgs.slice(lastUserIdx).filter(m => m.id && !String(m.id).startsWith('tmp'));
     await Promise.all(toDelete.map(m =>
-      fetch(`/api/messages/${m.id}`, { method: 'DELETE' }).catch(() => {})
+      fetch(`/api/messages/${m.id}`, { method: 'DELETE', headers: authHeaders() }).catch(() => {})
     ));
     // Refresh state
     await refreshChat(activeChatId);
@@ -288,7 +293,7 @@ export function useChat() {
 
     const toDelete = msgs.slice(lastUserIdx).filter(m => m.id && !String(m.id).startsWith('tmp'));
     await Promise.all(toDelete.map(m =>
-      fetch(`/api/messages/${m.id}`, { method: 'DELETE' }).catch(() => {})
+      fetch(`/api/messages/${m.id}`, { method: 'DELETE', headers: authHeaders() }).catch(() => {})
     ));
     await refreshChat(activeChatId);
     sendMessage({ userMessage: newText, mode: activeChat.mode });

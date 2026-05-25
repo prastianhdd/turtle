@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useToast } from './Toast';
+import { authHeaders } from '../hooks/useAuth';
 
 const MODE_PLACEHOLDER = {
   auto: 'Tanya apa saja ke Opus 4.7…',
@@ -78,7 +79,7 @@ function ChatInput({ mode, onSubmit, loading, onModeChange, onStop }) {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const res = await fetch('/api/upload', { method: 'POST', body: formData, headers: authHeaders() });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `Upload gagal (${res.status})`);
@@ -106,7 +107,7 @@ function ChatInput({ mode, onSubmit, loading, onModeChange, onStop }) {
     try {
       const formData = new FormData();
       formData.append('image', file);
-      const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+      const res = await fetch('/api/upload-image', { method: 'POST', body: formData, headers: authHeaders() });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `Upload gambar gagal (${res.status})`);
