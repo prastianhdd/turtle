@@ -71,13 +71,10 @@ export async function ingestDocument(documentId, text) {
 }
 
 /**
- * Retrieve top-k chunk relevan utk query.
- * @param {string} query
- * @param {number} k
- * @returns {Promise<Array<{chunkId, text, documentId, filename, distance}>>}
+ * Retrieve top-k chunk relevan utk query, di-scope per user kalau diberi.
  */
-export async function retrieve(query, k = 5) {
+export async function retrieve(query, k = 5, userId = null) {
   if (!query || !query.trim()) return [];
   const queryVec = await embed(query);
-  return await searchSimilarChunks(queryVec, k);
+  return await searchSimilarChunks(queryVec, k, userId);
 }

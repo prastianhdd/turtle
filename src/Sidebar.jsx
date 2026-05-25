@@ -12,7 +12,8 @@ function Sidebar({
   isOpen,
   onClose,
   onOpenMemory,
-  onLogout
+  onLogout,
+  user
 }) {
   const toast = useToast();
   const [projects, setProjects] = useState([]);
@@ -212,6 +213,21 @@ function Sidebar({
         </div>
 
         <div className="sidebar-footer">
+          {user && (
+            <div className="user-chip">
+              {user.picture ? (
+                <img src={user.picture} alt="" className="user-chip__avatar" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="user-chip__avatar user-chip__avatar--initial">
+                  {(user.name || user.email || '?').slice(0, 1).toUpperCase()}
+                </span>
+              )}
+              <div className="user-chip__body">
+                <span className="user-chip__name">{user.name || user.email}</span>
+                {user.name && <span className="user-chip__email">{user.email}</span>}
+              </div>
+            </div>
+          )}
           <button type="button" className="sidebar-footer-btn" onClick={onOpenMemory}>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -228,12 +244,6 @@ function Sidebar({
               <span>Keluar</span>
             </button>
           )}
-          <p>
-            Dibuat oleh{' '}
-            <a href="https://github.com/prastianhdd" target="_blank" rel="noopener noreferrer">
-              PrastianHD
-            </a>
-          </p>
         </div>
       </aside>
     </>

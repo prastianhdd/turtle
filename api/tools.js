@@ -107,8 +107,8 @@ function calculator({ expression }) {
   }
 }
 
-async function ragSearch({ query, k = 5 }) {
-  const hits = await retrieve(query, Math.min(k, 10));
+async function ragSearch({ query, k = 5 }, ctx = {}) {
+  const hits = await retrieve(query, Math.min(k, 10), ctx.userId || null);
   return {
     query,
     hits: hits.map(h => ({
@@ -120,18 +120,23 @@ async function ragSearch({ query, k = 5 }) {
   };
 }
 
-async function saveMemoryTool({ content, tags = '' }) {
+async function saveMemoryTool({ content, tags = '' }, ctx = {}) {
   if (!content || !content.trim()) throw new Error('content required');
-  const mem = await saveMemory({ content: content.trim(), tags: (tags || '').trim() });
+  const mem = await saveMemory({
+    content: content.trim(),
+    tags: (tags || '').trim(),
+    userId: ctx.userId || null
+  });
   return { ok: true, id: mem.id, content: mem.content };
 }
 
-async function recallMemoryTool({ query, limit = 5 }) {
+async function recallMemoryTool({ query, limit = 5 }, ctx = {}) {
   const lim = Math.min(limit || 5, 20);
+  const userId = ctx.userId || null;
   if (query && query.trim()) {
-    return { hits: await searchMemories(query.trim(), lim) };
+    return { hits: await searchMemories(query.trim(), lim, userId) };
   }
-  const all = await listMemories();
+  const all = await listMemories(userId);
   return { hits: all.slice(0, lim) };
 }
 
@@ -256,10 +261,10 @@ const HANDLERS = {
   recall_memory: recallMemoryTool
 };
 
-export async function executeTool(name, args) {
+export async function executeTool(name, args, ctx = {}) {
   const handler = HANDLERS[name];
   if (!handler) throw new Error(`Unknown tool: ${name}`);
-  return handler(args || {});
+  return handler(args || {}, ctx);
 }
 
 export const TOOL_NAMES = Object.keys(HANDLERS);

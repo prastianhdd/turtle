@@ -8,10 +8,11 @@ export default async function handler(req, res) {
   }
 
   const { chatId, userMessage, mode = 'auto', documentId, imageId } = req.body || {};
+  const userId = req.userId || null;
 
   if (!chatId || typeof userMessage !== 'string' || !userMessage.trim()) {
     return res.status(400).json({ error: 'chatId and non-empty userMessage are required' });
   }
 
-  await runOrchestrator({ chatId, userMessage: userMessage.trim(), mode, documentId, imageId }, res);
+  await runOrchestrator({ chatId, userMessage: userMessage.trim(), mode, documentId, imageId, userId }, res);
 }

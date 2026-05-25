@@ -1,4 +1,5 @@
 // Bearer token auth via localStorage. Token disisipkan ke Authorization header.
+// Multi-user via Google OAuth — token issued by /api/auth/google/callback.
 
 import { useState, useEffect, useCallback } from 'react';
 
@@ -30,49 +31,89 @@ function setStored(token, expiresAt) {
   }
 }
 
+// Parse hash setelah redirect dari /api/auth/google/callback
+// Format: #token=xxx&expires=123  atau  #auth_error=xxx
+function consumeAuthHashFromUrl() {
+  if (typeof window === 'undefined') return null;
+  const hash = window.location.hash || '';
+  if (!hash.startsWith('#')) return null;
+  const params = new URLSearchParams(hash.slice(1));
+  const token = params.get('token');
+  const expires = params.get('expires');
+  const error = params.get('auth_error');
+
+  if (token) {
+    setStored(token, expires ? Number(expires) : null);
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    return { token };
+  }
+  if (error) {
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    return { error };
+  }
+  return null;
+}
+
 export function useAuth() {
-  const [status, setStatus] = useState({ loading: true, authenticated: false, required: true });
+  const [status, setStatus] = useState({
+    loading: true,
+    authenticated: false,
+    required: true,
+    user: null,
+    error: null
+  });
 
   const refresh = useCallback(async () => {
     try {
       const res = await fetch('/api/auth/status', { headers: authHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        setStatus({
-          loading: false,
-          authenticated: Boolean(data.authenticated),
-          required: Boolean(data.required)
-        });
-      } else {
-        setStatus({ loading: false, authenticated: false, required: true });
+      const data = res.ok ? await res.json() : { authenticated: false, required: true };
+
+      if (data.authenticated && data.required) {
+        // Fetch user profile
+        try {
+          const meRes = await fetch('/api/auth/me', { headers: authHeaders() });
+          const me = await meRes.json().catch(() => ({}));
+          setStatus({
+            loading: false,
+            authenticated: true,
+            required: true,
+            user: me.user || null,
+            error: null
+          });
+          return;
+        } catch {
+          // Continue without profile
+        }
       }
+      setStatus({
+        loading: false,
+        authenticated: Boolean(data.authenticated),
+        required: Boolean(data.required),
+        user: null,
+        error: null
+      });
     } catch {
-      setStatus({ loading: false, authenticated: false, required: true });
+      setStatus({ loading: false, authenticated: false, required: true, user: null, error: null });
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    const consumed = consumeAuthHashFromUrl();
+    if (consumed?.error) {
+      setStatus(s => ({ ...s, error: consumed.error }));
+    }
+    refresh();
+  }, [refresh]);
 
-  const login = useCallback(async (password) => {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `Login gagal (${res.status})`);
-    if (!data.token) throw new Error('Token tidak ada di response');
-    setStored(data.token, data.expiresAt);
-    setStatus({ loading: false, authenticated: true, required: true });
-    return data;
+  const loginWithGoogle = useCallback(() => {
+    window.location.href = '/api/auth/google';
   }, []);
 
   const logout = useCallback(async () => {
     setStored(null);
-    setStatus({ loading: false, authenticated: false, required: true });
-    // Optional notify server (stateless, tidak benar2 perlu)
+    setStatus({ loading: false, authenticated: false, required: true, user: null, error: null });
     fetch('/api/auth/logout', { method: 'POST', headers: authHeaders() }).catch(() => {});
   }, []);
 
-  return { ...status, login, logout, refresh };
+  return { ...status, loginWithGoogle, logout, refresh };
 }

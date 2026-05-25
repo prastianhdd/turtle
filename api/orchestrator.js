@@ -7,6 +7,7 @@ import { LITERATURE_REVIEWER } from './agents/literature-reviewer.js';
 import { SUMMARIZER } from './agents/summarizer.js';
 import { PARAPHRASER } from './agents/paraphraser.js';
 import { TOOL_SCHEMAS, executeTool } from './tools.js';
+import { imageToDataUrl } from './storage.js';
 
 const MAX_DOC_CHARS = 60_000;
 const MAX_HISTORY_MESSAGES = 30;
@@ -62,15 +63,15 @@ function sendDone(res) {
 
 const TITLE_PLACEHOLDER = 'Percakapan Baru';
 
-export async function runOrchestrator({ chatId, userMessage, mode = 'auto', documentId, imageId }, res) {
-  const chat = await getChat(chatId);
+export async function runOrchestrator({ chatId, userMessage, mode = 'auto', documentId, imageId, userId = null }, res) {
+  const chat = await getChat(chatId, userId);
   if (!chat) {
     return res.status(404).json({ error: 'Chat not found' });
   }
 
-  const document = documentId ? await getDocument(documentId) : null;
+  const document = documentId ? await getDocument(documentId, userId) : null;
   const hasDocument = Boolean(document);
-  const image = imageId ? await getImage(imageId) : null;
+  const image = imageId ? await getImage(imageId, userId) : null;
   const hasImage = Boolean(image);
 
   setupSSE(res);
@@ -83,7 +84,7 @@ export async function runOrchestrator({ chatId, userMessage, mode = 'auto', docu
 
   if (!chat.title || chat.title === TITLE_PLACEHOLDER) {
     const title = userMessage.length > 60 ? userMessage.slice(0, 60) + '…' : userMessage;
-    await updateChat(chatId, { title, mode: chat.mode });
+    await updateChat(chatId, { title, mode: chat.mode }, userId);
   }
 
   // === 2. Route ===
@@ -138,13 +139,22 @@ export async function runOrchestrator({ chatId, userMessage, mode = 'auto', docu
     const lastIdx = messages.length - 1;
     const last = messages[lastIdx];
     if (last.role === 'user' && typeof last.content === 'string') {
-      messages[lastIdx] = {
-        role: 'user',
-        content: [
-          { type: 'text', text: last.content },
-          { type: 'image_url', image_url: { url: image.dataUrl, detail: 'auto' } }
-        ]
-      };
+      let dataUrl;
+      try {
+        dataUrl = await imageToDataUrl(image.filePath, image.mimeType);
+      } catch (err) {
+        console.error('[orchestrator] read image failed:', err.message);
+        dataUrl = null;
+      }
+      if (dataUrl) {
+        messages[lastIdx] = {
+          role: 'user',
+          content: [
+            { type: 'text', text: last.content },
+            { type: 'image_url', image_url: { url: dataUrl, detail: 'auto' } }
+          ]
+        };
+      }
     }
   }
 
@@ -182,12 +192,11 @@ export async function runOrchestrator({ chatId, userMessage, mode = 'auto', docu
               name: r.name,
               ok: r.ok,
               error: r.error || null,
-              // Cap result preview agar SSE tidak overflow
               preview: r.ok ? truncatePreview(r.result) : null
             });
           }
         },
-        { temperature: agent.temperature ?? 0.4 }
+        { temperature: agent.temperature ?? 0.4, ctx: { userId } }
       );
     } else {
       // Tanpa tools — stream langsung

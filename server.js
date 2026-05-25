@@ -10,9 +10,11 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 import chatHandler from './api/chat.js';
 import {
-  handleLogin,
-  handleLogout,
+  handleGoogleStart,
+  handleGoogleCallback,
   handleAuthStatus,
+  handleLogout,
+  handleMe,
   requireAuth
 } from './api/auth.js';
 import {
@@ -49,7 +51,6 @@ const app = express();
 const port = Number(process.env.PORT) || 3000;
 const SITE_URL = process.env.SITE_URL || 'http://localhost:5173';
 const ALLOWED_ORIGINS = SITE_URL.split(',').map(s => s.trim()).filter(Boolean);
-// Vite dev biasanya di port 5173. Tambahkan localhost variants untuk dev.
 const DEV_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173'];
 const ORIGINS = Array.from(new Set([...ALLOWED_ORIGINS, ...DEV_ORIGINS]));
 
@@ -63,43 +64,49 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 
-// === Auth (public endpoints, di-mount sebelum requireAuth) ===
-const loginLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  limit: 8,
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  message: { error: 'Terlalu banyak percobaan login.' }
-});
-
+// === Public auth routes ===
+app.get('/api/auth/google', handleGoogleStart);
+app.get('/api/auth/google/callback', handleGoogleCallback);
 app.get('/api/auth/status', handleAuthStatus);
-app.post('/api/auth/login', loginLimiter, handleLogin);
+app.get('/api/auth/me', handleMe);
 app.post('/api/auth/logout', handleLogout);
 
-// Gate untuk semua /api/* lainnya
+// === Auth gate untuk semua /api/* lainnya ===
 app.use(requireAuth);
 
-// === Rate limit: hanya untuk endpoint yang berat / mahal ===
-const llmLimiter = rateLimit({
+// === Rate limit ===
+// Global Kiro rate limit — share quota antar semua user. 60 req/menit total.
+const llmGlobalLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 20,
+  limit: 60,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: { error: 'Terlalu banyak permintaan, coba lagi dalam beberapa detik.' }
+  keyGenerator: () => 'global', // share key = global limit
+  message: { error: 'Server sedang sibuk. Tunggu beberapa detik.' }
+});
+
+// Per-user fallback (anti satu user spam habis quota orang lain)
+const llmPerUserLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req) => req.userId || req.ip,
+  message: { error: 'Terlalu banyak request dari Anda. Tunggu sebentar.' }
 });
 
 const uploadLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 10,
+  limit: 15,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: { error: 'Batas upload tercapai, coba lagi nanti.' }
+  keyGenerator: (req) => req.userId || req.ip
 });
 
 // === Chats CRUD ===
-app.get('/api/chats', async (_req, res) => {
+app.get('/api/chats', async (req, res) => {
   try {
-    res.json(await listChatsWithMessages());
+    res.json(await listChatsWithMessages(req.userId));
   } catch (err) {
     console.error('[GET /api/chats]', err);
     res.status(500).json({ error: err.message });
@@ -107,7 +114,7 @@ app.get('/api/chats', async (_req, res) => {
 });
 
 app.get('/api/chats/:id', async (req, res) => {
-  const chat = await getChat(req.params.id);
+  const chat = await getChat(req.params.id, req.userId);
   if (!chat) return res.status(404).json({ error: 'Chat not found' });
   res.json(chat);
 });
@@ -115,7 +122,7 @@ app.get('/api/chats/:id', async (req, res) => {
 app.post('/api/chats', async (req, res) => {
   try {
     const { mode = 'auto', title } = req.body || {};
-    const chat = await createChat({ mode, title });
+    const chat = await createChat({ mode, title, userId: req.userId });
     res.status(201).json(chat);
   } catch (err) {
     console.error('[POST /api/chats]', err);
@@ -124,19 +131,19 @@ app.post('/api/chats', async (req, res) => {
 });
 
 app.patch('/api/chats/:id', async (req, res) => {
-  const updated = await updateChat(req.params.id, req.body || {});
+  const updated = await updateChat(req.params.id, req.body || {}, req.userId);
   if (!updated) return res.status(404).json({ error: 'Chat not found' });
   res.json(updated);
 });
 
 app.delete('/api/chats/:id', async (req, res) => {
-  const ok = await deleteChat(req.params.id);
+  const ok = await deleteChat(req.params.id, req.userId);
   if (!ok) return res.status(404).json({ error: 'Chat not found' });
   res.status(204).end();
 });
 
 app.delete('/api/messages/:id', async (req, res) => {
-  const ok = await deleteMessage(req.params.id);
+  const ok = await deleteMessage(req.params.id, req.userId);
   if (!ok) return res.status(404).json({ error: 'Message not found' });
   res.status(204).end();
 });
@@ -153,50 +160,54 @@ app.get('/api/images/:id', handleGetImage);
 app.delete('/api/images/:id', handleDeleteImage);
 
 // === Projects ===
-app.get('/api/projects', async (_req, res) => res.json(await listProjects()));
+app.get('/api/projects', async (req, res) => res.json(await listProjects(req.userId)));
 
 app.get('/api/projects/:id', async (req, res) => {
-  const p = await getProject(req.params.id);
+  const p = await getProject(req.params.id, req.userId);
   if (!p) return res.status(404).json({ error: 'Project not found' });
-  const chats = await listChatsByProject(p.id);
-  const documents = await listDocumentsByProject(p.id);
+  const chats = await listChatsByProject(p.id, req.userId);
+  const documents = await listDocumentsByProject(p.id, req.userId);
   res.json({ ...p, chats, documents });
 });
 
 app.post('/api/projects', async (req, res) => {
   const { name, description } = req.body || {};
   if (!name || !name.trim()) return res.status(400).json({ error: 'name required' });
-  res.status(201).json(await createProject({ name: name.trim(), description: description || '' }));
+  res.status(201).json(await createProject({
+    name: name.trim(),
+    description: description || '',
+    userId: req.userId
+  }));
 });
 
 app.patch('/api/projects/:id', async (req, res) => {
-  const updated = await updateProject(req.params.id, req.body || {});
+  const updated = await updateProject(req.params.id, req.body || {}, req.userId);
   if (!updated) return res.status(404).json({ error: 'Project not found' });
   res.json(updated);
 });
 
 app.delete('/api/projects/:id', async (req, res) => {
-  const ok = await deleteProject(req.params.id);
+  const ok = await deleteProject(req.params.id, req.userId);
   if (!ok) return res.status(404).json({ error: 'Project not found' });
   res.status(204).end();
 });
 
 app.post('/api/chats/:id/project', async (req, res) => {
   const { projectId } = req.body || {};
-  await setChatProject(req.params.id, projectId || null);
+  await setChatProject(req.params.id, projectId || null, req.userId);
   res.status(204).end();
 });
 
 // === Memories ===
-app.get('/api/memories', async (_req, res) => res.json(await listMemories()));
+app.get('/api/memories', async (req, res) => res.json(await listMemories(req.userId)));
 app.delete('/api/memories/:id', async (req, res) => {
-  const ok = await deleteMemory(req.params.id);
+  const ok = await deleteMemory(req.params.id, req.userId);
   if (!ok) return res.status(404).json({ error: 'Memory not found' });
   res.status(204).end();
 });
 
-// === Chat completion (streaming) ===
-app.post('/api/chat', llmLimiter, async (req, res) => {
+// === Chat completion (streaming) — global + per-user limit ===
+app.post('/api/chat', llmGlobalLimiter, llmPerUserLimiter, async (req, res) => {
   try {
     await chatHandler(req, res);
   } catch (err) {
@@ -204,7 +215,6 @@ app.post('/api/chat', llmLimiter, async (req, res) => {
     if (!res.headersSent) {
       res.status(500).json({ error: 'Internal Server Error' });
     } else {
-      // Headers sudah terkirim (SSE) — tutup koneksi dengan error frame.
       res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
       res.write('data: [DONE]\n\n');
       res.end();
@@ -216,17 +226,15 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     model: process.env.OLLAMA_MODEL || 'gpt-oss:120b-cloud',
-    hasKey: Boolean(process.env.OLLAMA_API_KEY)
+    hasKey: Boolean(process.env.OLLAMA_API_KEY),
+    googleOAuth: Boolean(process.env.GOOGLE_CLIENT_ID)
   });
 });
 
 // === Static SPA (production) ===
-// Serve dist/ build saat NODE_ENV=production. Frontend & backend single-port.
-// Dev: Vite proxy /api ke server, jadi static serve di-skip.
 if (process.env.NODE_ENV === 'production') {
   const distDir = path.join(__dirname, 'dist');
   app.use(express.static(distDir, { maxAge: '1d', index: false }));
-  // SPA fallback — route apa pun yang bukan /api/* → index.html
   app.use((req, res, next) => {
     if (req.path.startsWith('/api/')) return next();
     if (req.method !== 'GET') return next();
@@ -237,9 +245,8 @@ if (process.env.NODE_ENV === 'production') {
 app.listen(port, () => {
   console.log(`Turtle ${process.env.NODE_ENV === 'production' ? 'PROD' : 'DEV'} listening on http://localhost:${port}`);
   console.log(`   CORS allowed origins: ${ORIGINS.join(', ')}`);
-  if (!process.env.OLLAMA_API_KEY) {
-    console.warn('   ! OLLAMA_API_KEY belum di-set di .env');
-  } else {
-    console.log(`   model: ${process.env.OLLAMA_MODEL || 'gpt-oss:120b-cloud'}`);
-  }
+  if (!process.env.OLLAMA_API_KEY) console.warn('   ! OLLAMA_API_KEY belum di-set');
+  if (!process.env.GOOGLE_CLIENT_ID) console.warn('   ! GOOGLE_CLIENT_ID belum di-set (auth disabled)');
+  if (!process.env.AUTH_SECRET) console.warn('   ! AUTH_SECRET belum di-set (pakai fallback dev secret)');
+  console.log(`   model: ${process.env.OLLAMA_MODEL || 'gpt-oss:120b-cloud'}`);
 });

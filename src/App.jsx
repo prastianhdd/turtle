@@ -19,13 +19,13 @@ function App() {
     return <div className="login-screen"><div className="skeleton skeleton-line skeleton-line--lg skeleton-line--w-40" /></div>;
   }
   if (auth.required && !auth.authenticated) {
-    return <Login onLogin={auth.login} />;
+    return <Login onLogin={auth.loginWithGoogle} error={auth.error} />;
   }
 
-  return <AppShell onLogout={auth.logout} />;
+  return <AppShell user={auth.user} onLogout={auth.logout} />;
 }
 
-function AppShell({ onLogout }) {
+function AppShell({ user, onLogout }) {
   const {
     chats,
     activeChat,
@@ -97,6 +97,7 @@ function AppShell({ onLogout }) {
         onClose={() => setIsSidebarOpen(false)}
         onOpenMemory={() => setIsMemoryOpen(true)}
         onLogout={onLogout}
+        user={user}
       />
 
       <div className="main-content">

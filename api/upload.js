@@ -1,5 +1,5 @@
 // PDF/text upload + image upload handler.
-// Setelah simpan dokumen → trigger ingest RAG (chunk + embed + vec table) async.
+// Image binary → disk (via api/storage.js), DB cuma simpan file_path.
 
 import multer from 'multer';
 import { extractText, getDocumentProxy } from 'unpdf';
@@ -13,6 +13,7 @@ import {
   deleteImage
 } from './db.js';
 import { ingestDocument } from './rag.js';
+import { saveImage, deleteImageFile } from './storage.js';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
@@ -43,6 +44,7 @@ export async function handleUpload(req, res) {
 
   const { originalname, mimetype, buffer } = req.file;
   const chatId = req.body?.chatId || null;
+  const userId = req.userId || null;
   const lowerName = (originalname || '').toLowerCase();
 
   let text = '';
@@ -68,11 +70,11 @@ export async function handleUpload(req, res) {
       chatId,
       filename: originalname,
       mimeType: mimetype,
-      text
+      text,
+      userId
     });
 
-    // Ingest RAG di background — jangan block respons.
-    // Kalau gagal (mis. embed endpoint down), dokumen tetap tersimpan, retrieval saja yg kosong.
+    // Ingest RAG di background — chunk + embed.
     ingestDocument(doc.id, text)
       .then(({ chunkCount }) => {
         console.log(`[ingest] ${doc.id} ${doc.filename}: ${chunkCount} chunks indexed`);
@@ -89,7 +91,7 @@ export async function handleUpload(req, res) {
 }
 
 export async function handleGetDocument(req, res) {
-  const doc = await getDocument(req.params.id);
+  const doc = await getDocument(req.params.id, req.userId);
   if (!doc) return res.status(404).json({ error: 'Document not found' });
   res.json(doc);
 }
@@ -97,11 +99,11 @@ export async function handleGetDocument(req, res) {
 export async function handleListDocuments(req, res) {
   const chatId = req.query.chatId;
   if (!chatId) return res.status(400).json({ error: 'chatId query required' });
-  res.json(await listDocumentsByChat(chatId));
+  res.json(await listDocumentsByChat(chatId, req.userId));
 }
 
 export async function handleDeleteDocument(req, res) {
-  const ok = await deleteDocument(req.params.id);
+  const ok = await deleteDocument(req.params.id, req.userId);
   if (!ok) return res.status(404).json({ error: 'Document not found' });
   res.status(204).end();
 }
@@ -119,29 +121,39 @@ export async function handleImageUpload(req, res) {
   }
   const { originalname, mimetype, buffer } = req.file;
   const chatId = req.body?.chatId || null;
+  const userId = req.userId || null;
 
   if (!IMAGE_MIMES.includes(mimetype)) {
     return res.status(415).json({ error: `Tipe gambar tidak didukung: ${mimetype}` });
   }
 
-  const dataUrl = `data:${mimetype};base64,${buffer.toString('base64')}`;
-  const img = await createImage({
-    chatId,
-    filename: originalname,
-    mimeType: mimetype,
-    dataUrl
-  });
-  return res.status(201).json(img);
+  try {
+    const filePath = await saveImage(buffer, mimetype);
+    const img = await createImage({
+      chatId,
+      filename: originalname,
+      mimeType: mimetype,
+      filePath,
+      userId
+    });
+    return res.status(201).json(img);
+  } catch (err) {
+    console.error('[upload-image] error:', err.message);
+    return res.status(500).json({ error: 'Gagal menyimpan gambar.' });
+  }
 }
 
 export async function handleGetImage(req, res) {
-  const img = await getImage(req.params.id);
+  const img = await getImage(req.params.id, req.userId);
   if (!img) return res.status(404).json({ error: 'Image not found' });
   res.json(img);
 }
 
 export async function handleDeleteImage(req, res) {
-  const ok = await deleteImage(req.params.id);
+  const img = await getImage(req.params.id, req.userId);
+  if (!img) return res.status(404).json({ error: 'Image not found' });
+  await deleteImageFile(img.filePath);
+  const ok = await deleteImage(req.params.id, req.userId);
   if (!ok) return res.status(404).json({ error: 'Image not found' });
   res.status(204).end();
 }

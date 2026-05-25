@@ -1,80 +1,49 @@
-import { useState, useRef, useEffect } from 'react';
 import SpikeMark from './SpikeMark';
 
-function Login({ onLogin }) {
-  const [password, setPassword] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [show, setShow] = useState(false);
-  const inputRef = useRef(null);
+const ERROR_MESSAGES = {
+  no_code: 'Login dibatalkan.',
+  state_mismatch: 'Sesi login kedaluwarsa, coba lagi.',
+  token_exchange_failed: 'Gagal verifikasi Google. Coba lagi.',
+  userinfo_failed: 'Gagal mengambil profil dari Google.',
+  no_email: 'Akun Google Anda tidak punya email publik.',
+  internal_error: 'Terjadi kesalahan server. Coba lagi.',
+  access_denied: 'Akses ditolak.'
+};
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#4285F4" d="M21.35 11.1H12.18v3.36h5.27c-.23 1.42-1.66 4.16-5.27 4.16-3.17 0-5.76-2.62-5.76-5.86s2.59-5.86 5.76-5.86c1.81 0 3.02.77 3.71 1.43l2.53-2.43C16.6 4.5 14.6 3.5 12.18 3.5 6.92 3.5 2.62 7.8 2.62 13.06s4.3 9.56 9.56 9.56c5.52 0 9.18-3.88 9.18-9.34 0-.62-.07-1.1-.16-1.58z"/>
+      <path fill="#34A853" d="M12.18 22.62c2.59 0 4.77-.86 6.36-2.34l-3.04-2.36c-.84.58-1.95.99-3.32.99-2.55 0-4.71-1.72-5.48-4.04H3.55v2.53c1.58 3.13 4.83 5.22 8.63 5.22z"/>
+      <path fill="#FBBC05" d="M6.7 14.87c-.2-.58-.31-1.2-.31-1.81 0-.62.11-1.23.3-1.81V8.71H3.55c-.65 1.27-1.02 2.71-1.02 4.35s.37 3.08 1.02 4.35l3.15-2.54z"/>
+      <path fill="#EA4335" d="M12.18 6.86c1.41 0 2.36.6 2.91 1.11l2.13-2.07c-1.3-1.21-2.99-1.96-5.04-1.96-3.8 0-7.05 2.09-8.63 5.22l3.15 2.54c.77-2.32 2.93-4.04 5.48-4.04z"/>
+    </svg>
+  );
+}
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!password || submitting) return;
-    setSubmitting(true);
-    setError('');
-    try {
-      await onLogin(password);
-    } catch (err) {
-      setError(err.message || 'Gagal masuk.');
-      setPassword('');
-      inputRef.current?.focus();
-    } finally {
-      setSubmitting(false);
-    }
-  };
+function Login({ onLogin, error }) {
+  const errMsg = error ? (ERROR_MESSAGES[error] || `Error: ${error}`) : null;
 
   return (
     <div className="login-screen">
       <div className="login-card">
         <SpikeMark className="login-glyph" size={32} />
         <h1 className="login-title">Turtle</h1>
-        <p className="login-subtitle">Akses Claude Opus 4.7 tanpa batas. Privat, tanpa rate limit Web UI.</p>
+        <p className="login-subtitle">Akses Claude Opus 4.7 tanpa batas. Masuk dengan akun Google Anda.</p>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="login-input-wrap">
-            <input
-              ref={inputRef}
-              type={show ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => { setPassword(e.target.value); if (error) setError(''); }}
-              placeholder="Password"
-              autoComplete="current-password"
-              disabled={submitting}
-              aria-label="Password"
-              aria-invalid={Boolean(error)}
-              className="login-input"
-            />
-            <button
-              type="button"
-              className="login-toggle"
-              onClick={() => setShow(s => !s)}
-              tabIndex={-1}
-              aria-label={show ? 'Sembunyikan password' : 'Tampilkan password'}
-            >
-              {show ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-              ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              )}
-            </button>
-          </div>
+        {errMsg && <div className="login-error" role="alert">{errMsg}</div>}
 
-          {error && <div className="login-error" role="alert">{error}</div>}
-
-          <button
-            type="submit"
-            className="login-submit"
-            disabled={submitting || !password}
-          >
-            {submitting ? 'Memeriksa…' : 'Akses'}
-          </button>
-        </form>
+        <button
+          type="button"
+          className="login-google"
+          onClick={onLogin}
+        >
+          <GoogleIcon />
+          <span>Masuk dengan Google</span>
+        </button>
 
         <p className="login-footer">
-          Sesi aktif 7 hari. Tutup browser tidak meng-logout.
+          Sesi aktif 30 hari. Tutup browser tidak meng-logout.
         </p>
       </div>
     </div>

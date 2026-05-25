@@ -128,7 +128,7 @@ export async function toolLoop(
   tools,
   executeTool,
   hooks = {},
-  { model, temperature = 0.4, maxIterations = MAX_TOOL_ITERATIONS } = {}
+  { model, temperature = 0.4, maxIterations = MAX_TOOL_ITERATIONS, ctx = {} } = {}
 ) {
   const { defaultModel } = getEnv();
   const onChunk = hooks.onChunk || (() => {});
@@ -197,7 +197,7 @@ export async function toolLoop(
 
       let result;
       try {
-        result = await executeTool(fn, args);
+        result = await executeTool(fn, args, ctx);
         onToolResult({ id: call.id, name: fn, ok: true, result });
       } catch (err) {
         result = { error: err.message };
