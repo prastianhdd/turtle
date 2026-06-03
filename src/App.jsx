@@ -4,22 +4,27 @@ import Header from './components/Header';
 import ChatWindow from './components/ChatWindow';
 import ChatInput from './components/ChatInput';
 import MemoryDrawer from './components/MemoryDrawer';
-import Login from './components/Login';
+import LandingPage from './components/LandingPage';
 import { useChat } from './hooks/useChat';
 import { useTheme } from './hooks/useTheme';
 import { useAuth } from './hooks/useAuth';
 import './styles/themes.css';
 import './styles/gemini.css';
 import './styles/sidebar.css';
+import './styles/landing.css';
 
 function App() {
   const auth = useAuth();
 
   if (auth.loading) {
-    return <div className="login-screen"><div className="skeleton skeleton-line skeleton-line--lg skeleton-line--w-40" /></div>;
+    return (
+      <div className="landing-bootstrap" aria-hidden="true">
+        <div className="skeleton skeleton-line skeleton-line--lg skeleton-line--w-40" />
+      </div>
+    );
   }
   if (auth.required && !auth.authenticated) {
-    return <Login onLogin={auth.loginWithGoogle} error={auth.error} />;
+    return <LandingPage onLogin={auth.loginWithGoogle} error={auth.error} />;
   }
 
   return <AppShell user={auth.user} onLogout={auth.logout} />;
@@ -181,7 +186,6 @@ function labelFor(intent) {
 function toolLabel(name) {
   switch (name) {
     case 'web_search': return 'Web Search';
-    case 'wikipedia':  return 'Wikipedia';
     case 'arxiv':      return 'arXiv';
     case 'calculator': return 'Calculator';
     case 'rag_search': return 'Dokumen (RAG)';

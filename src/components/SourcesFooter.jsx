@@ -8,9 +8,6 @@ const URL_REGEX = /https?:\/\/[^\s)\]]+/gi;
 // Domain yg sering muncul → label friendly
 const DOMAIN_LABEL = {
   'arxiv.org': 'arXiv',
-  'wikipedia.org': 'Wikipedia',
-  'en.wikipedia.org': 'Wikipedia EN',
-  'id.wikipedia.org': 'Wikipedia ID',
   'doi.org': 'DOI',
   'scholar.google.com': 'Google Scholar',
   'sciencedirect.com': 'ScienceDirect',
@@ -19,6 +16,7 @@ const DOMAIN_LABEL = {
   'science.org': 'Science',
   'ieee.org': 'IEEE',
   'acm.org': 'ACM',
+  'aclanthology.org': 'ACL Anthology',
   'github.com': 'GitHub'
 };
 
@@ -38,7 +36,7 @@ function getDomain(url) {
 
 function getLabel(domain) {
   if (DOMAIN_LABEL[domain]) return DOMAIN_LABEL[domain];
-  // Cek subdomain Wikipedia/arXiv
+  // Cek subdomain
   for (const key of Object.keys(DOMAIN_LABEL)) {
     if (domain.endsWith(key)) return DOMAIN_LABEL[key];
   }
